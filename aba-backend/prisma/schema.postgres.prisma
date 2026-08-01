@@ -1,0 +1,326 @@
+// ─── ABA Therapy Platform - Prisma Schema (Plan Z) ─────────────────────────
+// SQLite for local development. For production, switch to PostgreSQL
+// and restore native enums + array types.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Models ─────────────────────────────────────────────────────────────────
+// Note: SQLite doesn't support enums or native arrays.
+// All enum-like fields use String with validation at the application layer.
+// All array fields use JSON-serialized String.
+
+model Center {
+  id        String   @id @default(uuid())
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscription Subscription?
+  users        User[]
+  students     Student[]
+  auditLogs    AuditLog[]
+}
+
+model Subscription {
+  id                  String   @id @default(uuid())
+  centerId            String   @unique
+  center              Center   @relation(fields: [centerId], references: [id])
+  plan                String   @default("BASIC")       // BASIC | PRO | ENTERPRISE
+  status              String   @default("ACTIVE")      // ACTIVE | PAST_DUE | CANCELLED
+  currentAmount       Float    @default(0)
+  currency            String   @default("AED")
+  activeStudentLimit  Int      @default(10)
+  stripeCustomerId    String?
+  stripeSubscriptionId String?
+  startDate           DateTime @default(now())
+  endDate             DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model User {
+  id           String   @id @default(uuid())
+  centerId     String
+  center       Center   @relation(fields: [centerId], references: [id])
+  role         String                              // CENTER_ADMIN | SUPERVISOR | THERAPIST | PARENT
+  name         String
+  email        String   @unique
+  passwordHash String
+  refreshToken String?
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignedStudents StudentSupervisor[]
+  assignedTherapists StudentTherapist[] @relation("AssignedTherapist")
+  myTherapists     SupervisorTherapist[] @relation("SupervisorToTherapist")
+  mySupervisors    SupervisorTherapist[] @relation("TherapistToSupervisor")
+  createdPrograms  Program[]           @relation("ProgramCreator")
+  sessions         Session[]
+  supervisedSessions Session[]         @relation("SessionSupervisor")
+  auditLogs        AuditLog[]
+  coSignedNotes    SOAPNote[]          @relation("CoSigner")
+}
+
+model Student {
+  id            String    @id @default(uuid())
+  centerId      String
+  center        Center    @relation(fields: [centerId], references: [id])
+  name          String
+  dateOfBirth   DateTime?
+  guardianName  String?
+  guardianEmail String?
+  guardianPhone String?
+  isActive      Boolean   @default(true)
+  archivedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  supervisors    StudentSupervisor[]
+  therapists     StudentTherapist[]
+  programs       Program[]
+  sessions       Session[]
+  consentRecords ConsentRecord[]
+}
+
+model StudentSupervisor {
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id])
+  supervisorId  String
+  supervisor    User     @relation(fields: [supervisorId], references: [id])
+  assignedAt    DateTime @default(now())
+
+  @@id([studentId, supervisorId])
+}
+
+model Program {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  createdById String
+  createdBy   User     @relation("ProgramCreator", fields: [createdById], references: [id])
+  name        String
+  description String?
+  status      String   @default("IN_PROGRESS")  // IN_PROGRESS | MASTERED | ON_HOLD
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  targets  Target[]
+  sessions SessionProgram[]
+}
+
+model Target {
+  id                 String   @id @default(uuid())
+  programId          String
+  program            Program  @relation(fields: [programId], references: [id])
+  domain             String
+  skill              String
+  promptHierarchy    String   @default("[]")  // JSON array of prompt levels
+  masteryPercentage  Float    @default(80)
+  masteryConsecutive Int      @default(3)
+  status             String   @default("IN_PROGRESS")  // IN_PROGRESS | MASTERED | ON_HOLD
+  masteredAt         DateTime?
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  trials Trial[]
+}
+
+model Session {
+  id           String    @id @default(uuid())
+  studentId    String
+  student      Student   @relation(fields: [studentId], references: [id])
+  therapistId  String
+  therapist    User      @relation(fields: [therapistId], references: [id])
+  sessionType  String    @default("DTT")     // DTT | NET | MIXED
+  status       String    @default("SCHEDULED")  // SCHEDULED | IN_PROGRESS | COMPLETED | CANCELLED
+  scheduledFor DateTime?
+  startedAt    DateTime? @default(now())  // null until session actually starts
+  endedAt      DateTime?
+  supervisorId String?
+  supervisor   User?     @relation("SessionSupervisor", fields: [supervisorId], references: [id])
+  location     String?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  programs             SessionProgram[]
+  trials               Trial[]
+  behaviorRecords      BehaviorRecord[]
+  preferenceAssessments PreferenceAssessment[]
+  reinforcerChecks     ReinforcerCheck[]
+  alerts               Alert[]
+  soapNote             SOAPNote?
+}
+
+model SessionProgram {
+  sessionId String
+  session   Session @relation(fields: [sessionId], references: [id])
+  programId String
+  program   Program @relation(fields: [programId], references: [id])
+
+  @@id([sessionId, programId])
+}
+
+model StudentTherapist {
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id])
+  therapistId   String
+  therapist     User     @relation("AssignedTherapist", fields: [therapistId], references: [id])
+  assignedAt    DateTime @default(now())
+
+  @@id([studentId, therapistId])
+}
+
+model SupervisorTherapist {
+  supervisorId  String
+  supervisor    User     @relation("SupervisorToTherapist", fields: [supervisorId], references: [id])
+  therapistId   String
+  therapist     User     @relation("TherapistToSupervisor", fields: [therapistId], references: [id])
+  assignedAt    DateTime @default(now())
+
+  @@id([supervisorId, therapistId])
+}
+
+model Trial {
+  id              String   @id @default(uuid())
+  sessionId       String
+  session         Session  @relation(fields: [sessionId], references: [id])
+  targetId        String?
+  target          Target?  @relation(fields: [targetId], references: [id])
+  trialType       String   @default("DTT")   // DTT | NET
+  trialNumber     Int
+  response        String?
+  promptLevelUsed String?   // FULL_PHYSICAL | PARTIAL_PHYSICAL | MODEL | VERBAL | GESTURAL | INDEPENDENT
+  correct         Boolean?
+  timestamp       DateTime @default(now())
+  notes           String?
+
+  @@index([sessionId])
+  @@index([targetId])
+}
+
+model BehaviorRecord {
+  id            String   @id @default(uuid())
+  sessionId     String
+  session       Session  @relation(fields: [sessionId], references: [id])
+  behaviorType  String    // FREQUENCY | DURATION
+  behaviorName  String
+  antecedent    String?
+  behavior      String?
+  consequence   String?
+  frequency     Int?
+  durationSec   Int?
+  intensity     String?
+  timestamp     DateTime @default(now())
+  notes         String?
+
+  @@index([sessionId])
+}
+
+model PreferenceAssessment {
+  id           String   @id @default(uuid())
+  sessionId    String
+  session      Session  @relation(fields: [sessionId], references: [id])
+  method       String   // forced_choice | multiple_stimulus | free_operant
+  itemsOffered String   @default("[]")  // JSON array of strings
+  selectedItem String?
+  rankings     String?  // JSON object
+  notes        String?
+  timestamp    DateTime @default(now())
+
+  @@index([sessionId])
+}
+
+model ReinforcerCheck {
+  id                  String   @id @default(uuid())
+  sessionId           String
+  session             Session  @relation(fields: [sessionId], references: [id])
+  reinforcerUsed      String
+  effectivenessRating Int?     // 1-5 scale
+  notes               String?
+  timestamp           DateTime @default(now())
+
+  @@index([sessionId])
+}
+
+model SOAPNote {
+  id           String    @id @default(uuid())
+  sessionId    String    @unique
+  session      Session   @relation(fields: [sessionId], references: [id])
+  subjective   String?
+  objective    String?
+  assessment   String?
+  plan         String?
+  autoDrafted  Boolean   @default(false)
+  isFinalized  Boolean   @default(false)
+  coSignedById String?
+  coSignedBy   User?     @relation("CoSigner", fields: [coSignedById], references: [id])
+  coSignedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Alert {
+  id          String   @id @default(uuid())
+  sessionId   String
+  session     Session  @relation(fields: [sessionId], references: [id])
+  therapistId String
+  ruleId      String
+  message     String
+  severity    String   @default("info")  // info | warning | critical
+  fieldPath   String?  // Tap-to-jump field reference
+  isResolved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([therapistId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  centerId   String
+  center     Center   @relation(fields: [centerId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String    // LOGIN | LOGOUT | VIEW_PATIENT | UPDATE_RECORD | etc.
+  entityType String   // Student | Session | User | etc.
+  entityId   String?
+  details    String?  // JSON string
+  ipAddress  String?
+  userAgent  String?
+  timestamp  DateTime @default(now())
+
+  @@index([centerId])
+  @@index([userId])
+  @@index([timestamp])
+}
+
+model ConsentRecord {
+  id            String   @id @default(uuid())
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id])
+  guardianName  String
+  guardianEmail String?
+  consentType   String    // TREATMENT | DATA_PROCESSING | RECORDING
+  status        String   @default("GRANTED")  // GRANTED | REVOKED | EXPIRED
+  documentUrl   String?
+  grantedAt     DateTime @default(now())
+  revokedAt     DateTime?
+  expiresAt     DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([studentId])
+}

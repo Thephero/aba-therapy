@@ -1,0 +1,5 @@
+ Role       │ Email                   │ Password      │
+├────────────┼─────────────────────────┼───────────────┤
+│ Admin      │ admin@aba-demo.com      │ admin123      │
+│ Supervisor │ supervisor@aba-demo.com │ supervisor123 │
+│ Therapist  │ therapist@aba-demo.com  │ therapist123  

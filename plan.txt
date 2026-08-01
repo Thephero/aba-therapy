@@ -1,0 +1,182 @@
+ABA Therapy Platform - Complete Development Plan
+=================================================
+
+1. Project Overview
+SaaS platform for ABA therapy centers. Centers subscribe, manage staff (Center Admin, Supervisors, Therapists) and Students. Therapists run sessions (mobile app) covering all standard ABA elements, with a rule-based AI assistant that silently tracks protocol adherence (no clinical advice). Platform must comply with UAE/Middle East health data regulations.
+
+2. User Roles & Permissions
+- Center Administrator: manage subscription & billing, add/remove Supervisor/Therapist/Student accounts, assign supervisors to students, view center-wide analytics and audit logs.
+- Supervisor: manage therapist/student assignments, create/edit skill acquisition programs, approve behavior plans, view data/graphs, observe sessions remotely, co-sign session notes.
+- Therapist: view assigned students/programs, run sessions & record data, see non‑intrusive AI tracking alerts, complete session notes, view student history.
+- Student: profile (name, age, programs, etc.), optional digital token board.
+- Parent/Guardian: view progress reports, session summaries, messaging, home program materials (deferred some to post‑MVP).
+
+3. Session Elements (must support)
+- Discrete trial training (DTT): trial‑by‑trial data (correct/incorrect/prompt level)
+- Natural environment teaching (NET): incidental teaching, manding, intraverbals
+- Behavior reduction protocols: ABC recording, frequency/duration
+- Preference assessments and reinforcer checks
+- Prompt hierarchy selection and fading tracking
+- Automatic SOAP note draft from session data
+- Basic graphing: target mastery, behavior trends
+
+4. AI Implementation‑Tracking Assistant
+- Rule‑based, deterministic. No generative AI, no clinical advice.
+- Tracks protocol adherence, data completeness, consistency.
+- Tone: supportive, neutral, non‑judgmental. Phrases like “You may have missed…”
+- Response format: in‑app icon + ≤2 lines, tap to jump to relevant field. No audio, no pop‑ups that interrupt flow.
+- Example: “Target ‘Match colors’ missing prompt level. Tap to record.”
+
+5. Subscription & Billing
+- Per‑center monthly/annual fee + active student tier.
+- Stripe or regional payment gateway integration.
+
+6. Compliance (UAE & Middle East)
+- Encryption at rest (AES‑256) and in transit (TLS 1.3).
+- Data residency: Azure UAE North or AWS Bahrain (me‑south‑1).
+- Audit logs for all PHI access.
+- Consent management for parents/guardians.
+- Role‑based access control, automatic session timeout.
+- Compliance with DHA/DOH requirements, privacy by design.
+
+7. Platform Requirements
+- Web app (React/Next.js) for admin/supervisor dashboards.
+- Mobile app (Flutter) for therapists: offline‑capable, syncs when back online.
+- Telehealth/video integration (post‑MVP, architecture ready).
+- Real‑time session observation (WebRTC deferred).
+
+
+A. Architecture Overview
+- Modular monolith backend initially, with clear service boundaries to split into microservices later if needed.
+- API Gateway (NGINX or AWS API Gateway): routing, rate limiting, SSL.
+- Backend: Python/FastAPI or Node.js/NestJS – core logic, auth, session processing, rule engine.
+- Database: PostgreSQL (primary store for users, programs, sessions, etc.) + Redis (caching, sync queue).
+- File storage: S3‑compatible (AWS S3 or Azure Blob) in UAE region for session exports, consent docs.
+- AI rule engine: embedded as a stateless service inside backend, no ML model.
+- Real‑time: WebSockets (Socket.io) for live alerts and future session observation.
+- Mobile: Flutter, local SQLite, offline sync manager.
+- Web admin: React/Next.js, static hosting.
+- Infrastructure: AWS (Bahrain) or Azure (UAE North), Docker, ECS/Fargate or AKS.
+
+B. Technology Stack
+| Layer           | Technology               | Justification |
+|-----------------|--------------------------|---------------|
+| Backend API     | FastAPI (Python 3.11+)   | Fast, async, great for rule‑based validation |
+| Database        | PostgreSQL 15            | ACID, JSONB for flexible trial data |
+| Cache/Queue     | Redis                    | Offline sync jobs, session state, rate limiting |
+| Mobile App      | Flutter 3.22+            | Offline SQLite, single codebase iOS/Android |
+| Web Frontend    | React 18 / Next.js       | SSR for dashboards, good DX |
+| Real‑time       | Socket.io (Node sidecar) | Lightweight alongside FastAPI |
+| Rule Engine     | Python + JSON rules in DB| Simple, auditable, no external calls |
+| Auth            | Auth0 or Firebase Auth   | Multi‑tenant RBAC, or custom JWT |
+| Cloud           | AWS me‑south‑1 or Azure uaenorth | Data residency, compliance |
+| CI/CD           | GitHub Actions + Docker  | Automated testing & deployment |
+
+C. Data Models (Key Entities)
+- Center: id, name, subscription_tier, created_at
+- User: id, center_id, role (center_admin, supervisor, therapist, parent), name, email, password_hash, status
+- Student: id, center_id, name, dob, parent_id (FK User), program_ids, archived
+- Program: id, student_id, created_by, name, status, targets (JSONB array)
+  Target (embedded): id, domain, skill, prompt_hierarchy (list), mastery_criteria
+- Session: id, student_id, therapist_id, start_time, end_time, status, notes_draft, notes_final, supervisor_signed
+- Trial: id, session_id, target_id, trial_type (DTT/NET), response, prompt_level_used, timestamp
+- BehaviorRecord: id, session_id, behavior_type, antecedent, behavior, consequence, duration_sec, frequency, intensity
+- PreferenceAssessment: id, session_id, items_offered, selected_item, type
+- ReinforcerCheck: id, session_id, reinforcer_used, effectiveness_rating
+- Alert: id, session_id, therapist_id, rule_id, message, severity, resolved, created_at
+- AuditLog: id, user_id, action, resource_type, resource_id, timestamp, ip_address, details
+- ConsentRecord: id, student_id, guardian_id, consent_type, status, document_url, expiry
+
+D. API Design (RESTful, JSON)
+Base: https://api.abacentral.com/v1
+- Auth: POST /auth/login, /auth/refresh
+- Centers & Users: CRUD /centers, /users, /students
+- Programs: POST /students/{id}/programs, PATCH /programs/{id}, GET /programs?student_id=
+- Sessions: POST /sessions/start, PATCH /sessions/{id}, POST /sessions/{id}/end, GET /sessions/{id}
+- Alerts: GET /sessions/{id}/alerts (polling, later WebSocket)
+- Sync: POST /sync/push (client sends local changes), GET /sync/pull?last_synced_at=
+- Reports: GET /reports/student/{id}/progress
+
+E. Offline‑First Mobile Architecture
+- Local SQLite stores active student programs and all session data created offline.
+- Sync manager pushes local changes (with timestamps) to /sync/push when online; server uses last-write-wins with manual conflict flagging for rare overlaps.
+- Session flow: start online, continue offline, cache everything; queue metadata for later.
+- Local rule engine: rules JSON cached on device, alerts fire even offline.
+
+F. AI Rule Engine
+- Deterministic, rule‑based. Rules stored as JSON in DB.
+  Example:
+  {
+    "id": "rule_missing_prompt",
+    "trigger": "on_trial_save",
+    "condition": "trial_type == 'DTT' AND prompt_level_used == null",
+    "severity": "warning",
+    "message_template": "Target '{target_name}' missing prompt level. Tap to record."
+  }
+- Triggered on every Trial/Behavior save. Alert created and returned in response/WebSocket.
+- MVP rules (configurable by center):
+  1. Missing prompt level on DTT trial.
+  2. Missing ABC data on behavior record.
+  3. Session idle >10 min with no data.
+  4. Target not assessed in >5 sessions.
+  5. Prompt hierarchy not followed.
+  6. Session note not completed within 30 min of session end.
+
+G. Compliance & Security Blueprint
+- Data residency: all PHI/PII stored in AWS me‑south‑1 or Azure uaenorth.
+- Encryption: AES‑256 at rest, TLS 1.3 in transit. Mobile SQLite encrypted via sqlcipher.
+- Access control: RBAC, therapist access only to assigned students. Audit logs for all PHI access.
+- Consent management: digital signature from guardian before student added.
+- Session timeout: auto‑logout after 15 min.
+- UAE health law compliance: DHA/DOH guidelines, privacy by design, breach notification.
+- Business Associate Agreement with cloud provider as needed.
+
+H. MVP Development Phases (6 sprints, 2 weeks each)
+Sprint 1: Foundation & Auth
+- DB schema, FastAPI scaffold, Docker, JWT auth, basic web admin (center creation, user management), Flutter app shell with login.
+
+Sprint 2: Student & Program Management
+- Student CRUD, guardian assignment, program builder (targets with prompt hierarchy), assign programs, supervisor web dashboard, mobile: fetch/cache programs.
+
+Sprint 3: Session Engine & Data Collection
+- Start/end session, DTT trial entry, NET logging, ABC recording, preference assessment forms. All data saved offline to SQLite.
+
+Sprint 4: Offline Sync & Rule Engine
+- Sync manager (push/pull), rule engine backend, alert creation API. Mobile: local rule cache, alert display (icons, tap to fix).
+
+Sprint 5: Session Notes & Graphing
+- Auto‑draft SOAP note from session data, therapist edit & supervisor co‑sign flow. Basic graphs (mastery, behavior trends) on web.
+
+Sprint 6: Compliance, Subscription & Polish
+- Consent management (digital signature), audit logging, Stripe integration, security review, UAE compliance docs, app store readiness.
+
+I. Testing & QA Strategy
+- Unit: pytest (backend), Flutter test (mobile) for rules, sync, auth.
+- Integration: API endpoints with mock DB, rule triggers.
+- E2E: Playwright (web), Patrol (Flutter) for key flows.
+- Offline simulation: Flutter tests with network disabled.
+- Compliance: automated checks for encryption, audit logs.
+- Performance: Locust load tests on session push.
+
+J. Deployment & DevOps
+- CI/CD: GitHub Actions build Docker image, test, push to ECR, deploy to ECS/Fargate (backend) and S3/CloudFront (web). Flutter builds via Codemagic.
+- Environments: dev, staging (UAE mirror), production.
+- Monitoring: CloudWatch logs, Sentry for errors, Prometheus metrics for rule engine.
+- IaC: AWS CDK or Terraform for all resources.
+
+
+Scaffold Command:
+# Backend
+mkdir aba-backend && cd aba-backend
+python -m venv venv && source venv/bin/activate
+pip install fastapi uvicorn sqlalchemy asyncpg alembic pydantic redis python-jose
+
+# Mobile
+flutter create aba_mobile
+cd aba_mobile
+flutter pub add sqflite flutter_secure_storage dio connectivity_plus provider
+
+# Web
+npx create-next-app@latest aba-web --typescript
+cd aba-web
+npm install axios react-query tailwindcss

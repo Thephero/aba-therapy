@@ -1,0 +1,38 @@
+# Render blueprint — deploy this backend to the cloud
+# Docs: https://render.com/docs/blueprint-spec
+#
+# How to use:
+#   1. Push this repo to GitHub
+#   2. In Render: New → Blueprint → pick this repo → it reads render.yaml
+#   3. Set the `sync: false` env vars (marked in the Render dashboard)
+#      - DATABASE_URL   → your Neon Postgres connection string
+#      - JWT_SECRET     → any long random string (32+ chars)
+#      - JWT_REFRESH_SECRET → another long random string (32+ chars)
+#      - CORS_ORIGIN    → your Vercel frontend URL, e.g. https://aba-web.vercel.app
+#      - ENCRYPTION_KEY → 32-char key
+#   4. Deploy. The pre-deploy command creates the schema and seeds demo data.
+
+services:
+  - type: web
+    name: aba-backend
+    runtime: node
+    rootDir: aba-backend
+    plan: free
+    buildCommand: npm ci --include=dev && npm run db:generate:prod && npm run build
+    preDeployCommand: npm run db:setup:prod
+    startCommand: node dist/index.js
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # NOTE: do NOT set PORT — Render injects it automatically
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false

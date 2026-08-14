@@ -6,6 +6,7 @@ declare module 'lucide-react' {
   
   export const ArrowLeft: LucideIcon;
   export const Brain: LucideIcon;
+  export const ChevronDown: LucideIcon;
   export const Stethoscope: LucideIcon;
   export const XCircle: LucideIcon;
   export const Eye: LucideIcon;
@@ -21,4 +22,10 @@ declare module 'lucide-react' {
   export const Info: LucideIcon;
   export const Calendar: LucideIcon;
   export const RefreshCw: LucideIcon;
+  export const TrendingDown: LucideIcon;
+  export const Minus: LucideIcon;
+  export const Settings2: LucideIcon;
+  export const Timer: LucideIcon;
+  export const MessageCircle: LucideIcon;
+  export const Play: LucideIcon;
 }

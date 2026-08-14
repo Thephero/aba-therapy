@@ -9,6 +9,10 @@ import {
   AlertTriangle, CheckCircle2, Clock, RefreshCw,
 } from 'lucide-react';
 import { useState } from 'react';
+import { TrendIndicator } from '@/components/ui/trend-indicator';
+import { Sparkline } from '@/components/ui/sparkline';
+import { useAuth } from '@/contexts/AuthContext';
+import { FileText } from 'lucide-react';
 
 type Period = 'today' | 'week' | 'month';
 
@@ -16,17 +20,43 @@ interface SummaryData {
   totalStudents: number;
   activeStudents: number;
   totalStaff: number;
+  pendingNotes: number;
   sessionsToday: number;
+  scheduledToday: number;
   periodCompleted: number;
   periodInProgress: number;
   periodTotal: number;
   periodTrials: number;
   periodBehaviors: number;
   period: Period;
+  trends?: {
+    sessionsToday: number | null;
+    periodCompleted: number | null;
+    periodInProgress: number | null;
+    periodTotal: number | null;
+    periodTrials: number | null;
+    periodBehaviors: number | null;
+    newStudents: number | null;
+    newStaff: number | null;
+  };
+  series?: Array<{
+    date: string;
+    sessions: number;
+    completed: number;
+    inProgress: number;
+    trials: number;
+    behaviors: number;
+    newStudents: number;
+    newStaff: number;
+  }>;
 }
 
 export function MiniDashboard() {
   const [period, setPeriod] = useState<Period>('today');
+  const { user } = useAuth();
+  const isTherapist = user?.role === 'therapist';
+  const isAdmin = user?.role === 'center_admin';
+  const isParent = user?.role === 'parent';
 
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard-summary', period],
@@ -73,6 +103,26 @@ export function MiniDashboard() {
           </div>
         ) : data ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* Pending Notes — primary card for therapists, also useful for supervisors */}
+            {!isAdmin && (
+              <div className="rounded-lg border border-gray-100 bg-white p-3 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all duration-200">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-indigo-50">
+                    <FileText className="h-3.5 w-3.5 text-indigo-600" />
+                  </div>
+                  <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Pending Notes</span>
+                </div>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <p className="text-lg font-bold text-gray-900">{data.pendingNotes ?? 0}</p>
+                  {data.pendingNotes > 0 && <Badge variant="warning" className="text-[10px]">needs writing</Badge>}
+                </div>
+                <p className="text-[10px] text-gray-400">
+                  {data.pendingNotes === 0
+                    ? 'All caught up — nice work!'
+                    : 'Completed sessions without finalized notes'}
+                </p>
+              </div>
+            )}
             {/* Total Students */}
             <div className="rounded-lg border border-gray-100 bg-white p-3 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all duration-200">
               <div className="flex items-center gap-2">
@@ -81,25 +131,35 @@ export function MiniDashboard() {
                 </div>
                 <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Students</span>
               </div>
-              <p className="mt-1.5 text-lg font-bold text-gray-900">{data.totalStudents}</p>
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <p className="text-lg font-bold text-gray-900">{data.totalStudents}</p>
+                {data.trends && <TrendIndicator value={data.trends.newStudents} />}
+              </div>
+              <Sparkline data={(data.series || []).map((d) => d.newStudents)} color="#2563eb" width={88} height={18} className="mt-1" />
               <p className="text-[10px] text-gray-400">
                 {data.activeStudents} active today
               </p>
             </div>
 
-            {/* Staff */}
-            <div className="rounded-lg border border-gray-100 bg-white p-3 hover:border-purple-200 hover:bg-purple-50/30 transition-all duration-200">
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-purple-50">
-                  <Users className="h-3.5 w-3.5 text-purple-600" />
+            {/* Staff — admin/supervisor only (therapist & parent don't need it) */}
+            {!isTherapist && !isParent && (
+              <div className="rounded-lg border border-gray-100 bg-white p-3 hover:border-purple-200 hover:bg-purple-50/30 transition-all duration-200">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-purple-50">
+                    <Users className="h-3.5 w-3.5 text-purple-600" />
+                  </div>
+                  <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Staff</span>
                 </div>
-                <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Staff</span>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <p className="text-lg font-bold text-gray-900">{data.totalStaff}</p>
+                  {data.trends && <TrendIndicator value={data.trends.newStaff} />}
+                </div>
+                <Sparkline data={(data.series || []).map((d) => d.newStaff)} color="#9333ea" width={88} height={18} className="mt-1" />
+                <p className="text-[10px] text-gray-400">active personnel</p>
               </div>
-              <p className="mt-1.5 text-lg font-bold text-gray-900">{data.totalStaff}</p>
-              <p className="text-[10px] text-gray-400">active personnel</p>
-            </div>
+            )}
 
-            {/* Sessions Today */}
+            {/* Sessions Today — run vs scheduled */}
             <div className="rounded-lg border border-gray-100 bg-white p-3 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all duration-200">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50">
@@ -107,8 +167,14 @@ export function MiniDashboard() {
                 </div>
                 <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Sessions</span>
               </div>
-              <p className="mt-1.5 text-lg font-bold text-gray-900">{data.sessionsToday}</p>
-              <p className="text-[10px] text-gray-400">today</p>
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <p className="text-lg font-bold text-gray-900">{data.sessionsToday}</p>
+                {data.trends && <TrendIndicator value={data.trends.sessionsToday} />}
+              </div>
+              <Sparkline data={(data.series || []).map((d) => d.sessions)} color="#059669" width={88} height={18} className="mt-1" />
+              <p className="text-[10px] text-gray-400">
+                {data.sessionsToday} run · {data.scheduledToday || 0} scheduled today
+              </p>
             </div>
 
             {/* Completed / In Progress */}
@@ -123,12 +189,14 @@ export function MiniDashboard() {
                 <span className="flex items-center gap-1 text-xs text-emerald-600">
                   <CheckCircle2 className="h-3 w-3" />
                   {data.periodCompleted}
+                  {data.trends && <TrendIndicator value={data.trends.periodCompleted} compact />}
                 </span>
                 <span className="flex items-center gap-1 text-xs text-amber-600">
                   <Clock className="h-3 w-3" />
                   {data.periodInProgress}
                 </span>
               </div>
+              <Sparkline data={(data.series || []).map((d) => d.completed)} color="#d97706" width={88} height={18} className="mt-1" />
               <p className="text-[10px] text-gray-400">{data.periodTotal} total</p>
             </div>
 
@@ -140,7 +208,11 @@ export function MiniDashboard() {
                 </div>
                 <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Trials</span>
               </div>
-              <p className="mt-1.5 text-lg font-bold text-gray-900">{data.periodTrials}</p>
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <p className="text-lg font-bold text-gray-900">{data.periodTrials}</p>
+                {data.trends && <TrendIndicator value={data.trends.periodTrials} />}
+              </div>
+              <Sparkline data={(data.series || []).map((d) => d.trials)} color="#4f46e5" width={88} height={18} className="mt-1" />
               <p className="text-[10px] text-gray-400">{periodLabel.toLowerCase()} total</p>
             </div>
 
@@ -152,7 +224,11 @@ export function MiniDashboard() {
                 </div>
                 <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Behaviors</span>
               </div>
-              <p className="mt-1.5 text-lg font-bold text-gray-900">{data.periodBehaviors}</p>
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <p className="text-lg font-bold text-gray-900">{data.periodBehaviors}</p>
+                {data.trends && <TrendIndicator value={data.trends.periodBehaviors} invert />}
+              </div>
+              <Sparkline data={(data.series || []).map((d) => d.behaviors)} color="#ef4444" width={88} height={18} className="mt-1" />
               <p className="text-[10px] text-gray-400">{periodLabel.toLowerCase()} recorded</p>
             </div>
           </div>

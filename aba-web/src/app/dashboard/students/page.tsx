@@ -10,9 +10,12 @@ import { Badge } from '@/components/ui/badge';
 import { Modal } from '@/components/ui/modal';
 import { Search, Plus, Calendar, User, ArrowLeft } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 
 export default function StudentsPage() {
+  const { user } = useAuth();
+  const canEdit = user?.role === 'center_admin' || user?.role === 'supervisor';
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [form, setForm] = useState({
@@ -60,10 +63,12 @@ export default function StudentsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Students</h1>
           <p className="mt-1 text-sm text-gray-500">Manage student profiles and program assignments</p>
         </div>
-        <Button onClick={() => setShowAddModal(true)}>
-          <Plus className="h-4 w-4" />
-          Add Student
-        </Button>
+        {canEdit && (
+          <Button onClick={() => setShowAddModal(true)}>
+            <Plus className="h-4 w-4" />
+            Add Student
+          </Button>
+        )}
       </div>
 
       <div className="relative max-w-sm">

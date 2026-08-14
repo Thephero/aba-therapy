@@ -1,11 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { TrendIndicator } from '@/components/ui/trend-indicator';
+import { Sparkline } from '@/components/ui/sparkline';
 import {
   LayoutDashboard,
   Users,
@@ -16,35 +19,43 @@ import {
   Calendar,
   LogOut,
   Activity,
+  ChevronDown,
 } from 'lucide-react';
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['center_admin', 'supervisor', 'therapist'] },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['center_admin', 'supervisor', 'therapist', 'parent'] },
   { href: '/dashboard/users', label: 'Users', icon: Users, roles: ['center_admin'] },
-  { href: '/dashboard/students', label: 'Students', icon: GraduationCap, roles: ['center_admin', 'supervisor', 'therapist'] },
+  { href: '/dashboard/students', label: 'Students', icon: GraduationCap, roles: ['center_admin', 'supervisor', 'therapist', 'parent'] },
   { href: '/dashboard/programs', label: 'Programs', icon: BookOpen, roles: ['center_admin', 'supervisor', 'therapist'] },
-  { href: '/dashboard/sessions', label: 'Sessions', icon: ClipboardList, roles: ['center_admin', 'supervisor', 'therapist'] },
+  { href: '/dashboard/sessions', label: 'Sessions', icon: ClipboardList, roles: ['center_admin', 'supervisor', 'therapist', 'parent'] },
   { href: '/dashboard/calendar', label: 'Calendar', icon: Calendar, roles: ['center_admin', 'supervisor', 'therapist'] },
   { href: '/dashboard/reports', label: 'Reports', icon: BarChart3, roles: ['center_admin', 'supervisor'] },
 ];
 
+type TrendPeriod = 'today' | 'week' | 'month';
+
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const [statsOpen, setStatsOpen] = useState(true);
+  const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>('today');
 
   const { data: stats } = useQuery({
-    queryKey: ['dashboard-stats'],
+    queryKey: ['dashboard-stats', trendPeriod],
     queryFn: async () => {
-      const [students, users, sessions] = await Promise.all([
+      const [students, users, sessions, summary] = await Promise.all([
         api.get('/students').catch(() => ({ data: { students: [] } })),
         api.get('/users').catch(() => ({ data: { users: [] } })),
         api.get('/sessions').catch(() => ({ data: { sessions: [] } })),
+        api.get(`/dashboard/summary?period=${trendPeriod}`).catch(() => ({ data: { summary: { trends: {}, series: [] } } })),
       ]);
       return {
         totalStudents: students.data.students?.length || 0,
         totalStaff: users.data.users?.length || 0,
         activeSessions: sessions.data.sessions?.filter((s: any) => s.status === 'IN_PROGRESS').length || 0,
         completedToday: sessions.data.sessions?.filter((s: any) => s.status === 'COMPLETED').length || 0,
+        trends: (summary.data.summary as any)?.trends || {},
+        series: (summary.data.summary as any)?.series || [],
       };
     },
     refetchInterval: 30000,
@@ -57,12 +68,20 @@ export function Sidebar() {
 
   const visibleItems = navItems.filter((item) => item.roles.includes(userRole));
 
-  const statItems = [
-    { label: 'Student', value: stats?.totalStudents ?? '—', href: '/dashboard/students', icon: GraduationCap, color: 'text-blue-600', bg: 'bg-blue-50', roles: ['center_admin', 'supervisor', 'therapist'] },
-    { label: 'Staff', value: stats?.totalStaff ?? '—', href: '/dashboard/users', icon: Users, color: 'text-purple-600', bg: 'bg-purple-50', roles: ['center_admin'] },
-    { label: 'Active Sessions', value: stats?.activeSessions ?? '—', href: '/dashboard/sessions', icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-50', roles: ['center_admin', 'supervisor', 'therapist'] },
-    { label: 'Completed Today', value: stats?.completedToday ?? '—', href: '/dashboard/reports', icon: ClipboardList, color: 'text-amber-600', bg: 'bg-amber-50', roles: ['center_admin', 'supervisor'] },
-  ];
+  const series = (stats?.series || []) as any[];
+
+  // Parents get a simplified stat rail: just their child's sessions + pending notes.
+  const statItems = userRole === 'parent'
+    ? [
+        { label: 'My Child', value: stats?.totalStudents ?? '—', trend: null, spark: [], href: '/dashboard/students', icon: GraduationCap, color: 'text-blue-600', bg: 'bg-blue-50', sparkColor: '#2563eb', roles: ['parent'] },
+        { label: 'Sessions', value: stats?.activeSessions ?? '—', trend: null, spark: series.map((d) => d.sessions as number), href: '/dashboard/sessions', icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-50', sparkColor: '#059669', roles: ['parent'] },
+      ]
+    : [
+        { label: 'Student', value: stats?.totalStudents ?? '—', trend: stats?.trends?.newStudents, spark: series.map((d) => d.newStudents as number), href: '/dashboard/students', icon: GraduationCap, color: 'text-blue-600', bg: 'bg-blue-50', sparkColor: '#2563eb', roles: ['center_admin', 'supervisor', 'therapist'] },
+        { label: 'Staff', value: stats?.totalStaff ?? '—', trend: stats?.trends?.newStaff, spark: series.map((d) => d.newStaff as number), href: '/dashboard/users', icon: Users, color: 'text-purple-600', bg: 'bg-purple-50', sparkColor: '#9333ea', roles: ['center_admin'] },
+        { label: 'Active Sessions', value: stats?.activeSessions ?? '—', trend: stats?.trends?.periodInProgress, spark: series.map((d) => d.inProgress as number), href: '/dashboard/sessions', icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-50', sparkColor: '#059669', roles: ['center_admin', 'supervisor', 'therapist'] },
+        { label: 'Completed Today', value: stats?.completedToday ?? '—', trend: stats?.trends?.periodCompleted, spark: series.map((d) => d.completed as number), href: '/dashboard/reports', icon: ClipboardList, color: 'text-amber-600', bg: 'bg-amber-50', sparkColor: '#d97706', roles: ['center_admin', 'supervisor'] },
+      ];
 
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-full w-[var(--sidebar-width)] flex-col bg-white border-r border-gray-200">
@@ -100,33 +119,79 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Quick stats */}
+      {/* Quick stats — collapsible */}
       <div className="border-t border-gray-200 p-4">
-        <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-          Quick Stats
-        </p>
-        <div className="space-y-1.5">
-          {statItems.map((item) => {
-            const canAccess = item.roles.includes(userRole);
-            const inner = (
-              <div className="group flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-50">
-                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${item.bg} transition-transform duration-200 group-hover:scale-110`}>
-                  <item.icon className={`h-4 w-4 ${item.color}`} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium text-gray-600 group-hover:text-indigo-600">{item.label}</p>
-                </div>
-                <span className="text-lg font-bold text-gray-900 leading-none">{item.value}</span>
-              </div>
-            );
-            return canAccess ? (
-              <Link key={item.label} href={item.href} className="block">
-                {inner}
-              </Link>
-            ) : (
-              <div key={item.label}>{inner}</div>
-            );
-          })}
+        <div className="mb-1 flex items-center justify-between gap-2 px-1">
+          <button
+            onClick={() => setStatsOpen((open) => !open)}
+            className="flex items-center gap-1 text-left transition-colors hover:opacity-80"
+            aria-expanded={statsOpen}
+          >
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              Quick Stats
+            </span>
+            <ChevronDown
+              className={cn(
+                'h-3.5 w-3.5 text-gray-400 transition-transform duration-200',
+                statsOpen ? 'rotate-180' : 'rotate-0'
+              )}
+            />
+          </button>
+          <div className="flex rounded-md border border-gray-200 bg-gray-50 p-0.5">
+            {(['today', 'week', 'month'] as TrendPeriod[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => setTrendPeriod(p)}
+                title={`Trend vs previous ${p === 'today' ? 'day' : p}`}
+                className={cn(
+                  'px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide rounded transition-all duration-200',
+                  trendPeriod === p
+                    ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-gray-200'
+                    : 'text-gray-400 hover:text-gray-600'
+                )}
+              >
+                {p === 'today' ? 'D' : p === 'week' ? 'W' : 'M'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div
+          className={cn(
+            'grid transition-all duration-200 ease-in-out',
+            statsOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+          )}
+        >
+          <div className="overflow-hidden">
+            <div className="space-y-1.5 pt-1">
+              {statItems.map((item) => {
+                const canAccess = item.roles.includes(userRole);
+                const inner = (
+                  <div className="group flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-50">
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${item.bg} transition-transform duration-200 group-hover:scale-110`}>
+                      <item.icon className={`h-4 w-4 ${item.color}`} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium text-gray-600 group-hover:text-indigo-600">{item.label}</p>
+                      <div className="mt-0.5 flex items-end gap-1">
+                        <Sparkline data={item.spark} color={item.sparkColor} width={56} height={16} className="shrink-0" />
+                      </div>
+                    </div>
+                    <span className="flex flex-col items-end gap-0.5">
+                      <span className="text-base font-bold text-gray-900 leading-none">{item.value}</span>
+                      <TrendIndicator value={item.trend} compact />
+                    </span>
+                  </div>
+                );
+                return canAccess ? (
+                  <Link key={item.label} href={item.href} className="block">
+                    {inner}
+                  </Link>
+                ) : (
+                  <div key={item.label}>{inner}</div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 

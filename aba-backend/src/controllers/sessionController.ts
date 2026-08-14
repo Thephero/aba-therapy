@@ -1,5 +1,17 @@
 import { prisma } from '../utils/prisma';
+import { getSessionScope, getStudentScope, canAccessSession } from '../utils/access';
 import { Request, Response, NextFunction } from 'express';
+
+function normalizeSessionType(sessionType: any): string {
+  // Accept either a single string (legacy) or an array of modalities (new UI).
+  const modalities = Array.isArray(sessionType)
+    ? sessionType
+    : sessionType
+      ? [sessionType]
+      : ['DTT'];
+  const cleaned = modalities.filter((m: any) => typeof m === 'string' && m.trim());
+  return JSON.stringify(cleaned.length > 0 ? cleaned : ['DTT']);
+}
 
 export async function startSession(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -11,7 +23,7 @@ export async function startSession(req: Request, res: Response, next: NextFuncti
       data: {
         studentId,
         therapistId: therapistId!,
-        sessionType: sessionType || 'DTT',
+        sessionType: normalizeSessionType(sessionType),
         status: 'IN_PROGRESS',
         startedAt: new Date(),
         supervisorId: supervisorId || undefined,
@@ -46,7 +58,7 @@ export async function scheduleSession(req: Request, res: Response, next: NextFun
       data: {
         studentId,
         therapistId,
-        sessionType: sessionType || 'DTT',
+        sessionType: normalizeSessionType(sessionType),
         status: 'SCHEDULED',
         scheduledFor: new Date(scheduledFor),
         supervisorId: supervisorId || undefined,
@@ -99,6 +111,11 @@ export async function beginScheduledSession(req: Request, res: Response, next: N
 
 export async function getSession(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    if (!req.user || !(await canAccessSession(req.user, req.params.id as string))) {
+      res.status(403).json({ error: 'You do not have access to this session' });
+      return;
+    }
+
     const session = await prisma.session.findUnique({
       where: { id: req.params.id as string },
       include: {
@@ -107,6 +124,7 @@ export async function getSession(req: Request, res: Response, next: NextFunction
         programs: { include: { program: { include: { targets: true } } } },
         trials: { orderBy: { trialNumber: 'asc' } },
         behaviorRecords: { orderBy: { timestamp: 'desc' } },
+        mandRecords: { orderBy: { timestamp: 'desc' } },
         preferenceAssessments: { orderBy: { timestamp: 'desc' } },
         reinforcerChecks: { orderBy: { timestamp: 'desc' } },
         alerts: { orderBy: { createdAt: 'desc' } },
@@ -144,17 +162,13 @@ export async function endSession(req: Request, res: Response, next: NextFunction
 export async function listSessions(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { studentId, therapistId, status, type, centerId: queryCenterId } = req.query as Record<string, string>;
-    const where: any = {};
+    const scope = await getSessionScope(req.user!);
+    const where: any = { ...scope };
 
     if (studentId) where.studentId = studentId;
     if (therapistId) where.therapistId = therapistId;
     if (status) where.status = status;
     if (type === 'upcoming') where.status = 'SCHEDULED';
-
-    // Center-level filter for admins
-    if (req.user?.role === 'CENTER_ADMIN' && !studentId && !therapistId) {
-      where.student = { centerId: req.user.centerId };
-    }
 
     const sessions = await prisma.session.findMany({
       where,
@@ -214,7 +228,22 @@ export async function addTrial(req: Request, res: Response, next: NextFunction):
 export async function addBehaviorRecord(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const body = req.body as Record<string, any>;
-    let { behaviorType, behaviorName, antecedent, behavior, consequence, frequency, durationSec, intensity, notes } = body;
+    let { behaviorPlanId, behaviorType, behaviorName, antecedent, behavior, consequence, frequency, durationSec, intensity, notes } = body;
+
+    // If a behavior plan is chosen, the plan defines the data type and name —
+    // the therapist should not be able to override either (supervisor-set).
+    if (behaviorPlanId) {
+      const plan = await prisma.behaviorPlan.findUnique({
+        where: { id: behaviorPlanId as string },
+        select: { id: true, name: true, dataType: true },
+      });
+      if (!plan) {
+        res.status(400).json({ error: 'Behavior plan not found' });
+        return;
+      }
+      behaviorName = plan.name;
+      behaviorType = plan.dataType;
+    }
 
     // Fix: intensity is String? in schema, convert number to string
     if (intensity !== undefined && intensity !== null) {
@@ -233,6 +262,7 @@ export async function addBehaviorRecord(req: Request, res: Response, next: NextF
     const record = await prisma.behaviorRecord.create({
       data: {
         sessionId: req.params.id as string,
+        behaviorPlanId: behaviorPlanId || undefined,
         behaviorType,
         behaviorName,
         antecedent,
@@ -242,6 +272,30 @@ export async function addBehaviorRecord(req: Request, res: Response, next: NextF
         durationSec: behaviorType === 'DURATION' ? (parseInt(durationSec) || 30) : null,
         intensity,
         notes,
+      },
+    });
+
+    res.status(201).json({ record });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ─── Mands ──────────────────────────────────────────────────────────────────
+
+export async function addMandRecord(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const body = req.body as Record<string, any>;
+    const { mandType, itemRequested, promptLevelUsed, independent, notes } = body;
+
+    const record = await prisma.mandRecord.create({
+      data: {
+        sessionId: req.params.id as string,
+        mandType: mandType || 'SPONTANEOUS',
+        itemRequested: itemRequested || undefined,
+        promptLevelUsed: promptLevelUsed || undefined,
+        independent: independent === true,
+        notes: notes || undefined,
       },
     });
 
@@ -339,9 +393,10 @@ export async function getDashboardSummary(req: Request, res: Response, next: Nex
     const period = (req.query.period as string) || 'today';
     const centerId = req.user?.centerId;
 
-    let startDate: Date;
     const now = new Date();
 
+    // Current period start
+    let startDate: Date;
     if (period === 'week') {
       startDate = new Date(now);
       startDate.setDate(startDate.getDate() - 7);
@@ -353,22 +408,88 @@ export async function getDashboardSummary(req: Request, res: Response, next: Nex
       startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     }
 
-    const centerFilter = centerId ? { centerId } : {};
-    const sessionCenterFilter = centerId ? { student: { centerId } } : {};
-    const timeWhere = {
-      startedAt: { gte: startDate },
-      ...sessionCenterFilter,
-    };
+    // Previous period start (same length, immediately before the current one)
+    let prevStartDate: Date;
+    if (period === 'week') {
+      prevStartDate = new Date(startDate);
+      prevStartDate.setDate(prevStartDate.getDate() - 7);
+    } else if (period === 'month') {
+      prevStartDate = new Date(startDate);
+      prevStartDate.setMonth(prevStartDate.getMonth() - 1);
+    } else {
+      prevStartDate = new Date(startDate);
+      prevStartDate.setDate(prevStartDate.getDate() - 1);
+    }
 
-    const [
-      totalStudents,
-      activeStudents,
-      totalStaff,
-      sessionsToday,
-      allPeriodSessions,
-      periodTrials,
-      periodBehaviors,
-    ] = await Promise.all([
+    const studentScope = await getStudentScope(req.user!);
+    const centerFilter = centerId ? { ...studentScope } : {};
+    const sessionCenterFilter = centerId ? { student: studentScope } : {};
+
+    async function computePeriod(start: Date, end?: Date) {
+      // Range helper: [start, end) — end is optional (open-ended for the current period)
+      const range = () => ({
+        gte: start,
+        ...(end ? { lt: end } : {}),
+      } as Record<string, any>);
+
+      const [sessionsToday, scheduledToday, periodSessions, periodTrials, periodBehaviors, newStudents, newStaff] = await Promise.all([
+        // Sessions actually run in the period (completed or in-progress with a start time)
+        prisma.session.count({
+          where: {
+            status: { in: ['COMPLETED', 'IN_PROGRESS'] },
+            startedAt: range(),
+            ...sessionCenterFilter,
+          },
+        }),
+        // Sessions merely scheduled in the period (not yet run)
+        prisma.session.count({
+          where: {
+            status: 'SCHEDULED',
+            scheduledFor: range(),
+            ...sessionCenterFilter,
+          },
+        }),
+        // All sessions in period
+        prisma.session.findMany({
+          where: {
+            OR: [
+              { startedAt: range() },
+              { scheduledFor: range() },
+            ],
+            ...sessionCenterFilter,
+          },
+          select: { id: true, status: true, startedAt: true, scheduledFor: true },
+        }),
+        // Trials count in period (via session relation)
+        prisma.trial.count({
+          where: { session: { startedAt: range(), ...sessionCenterFilter } },
+        }),
+        // Behavior records count in period
+        prisma.behaviorRecord.count({
+          where: { session: { startedAt: range(), ...sessionCenterFilter } },
+        }),
+        // New students created in period (for trend)
+        prisma.student.count({ where: { ...centerFilter, createdAt: range() } }),
+        // New staff created in period (for trend)
+        prisma.user.count({ where: { ...centerFilter, createdAt: range() } }),
+      ]);
+
+      return {
+        sessionsToday,
+        scheduledToday,
+        periodTotal: periodSessions.length,
+        periodCompleted: periodSessions.filter((s) => s.status === 'COMPLETED').length,
+        periodInProgress: periodSessions.filter((s) => s.status === 'IN_PROGRESS').length,
+        periodTrials,
+        periodBehaviors,
+        newStudents,
+        newStaff,
+      };
+    }
+
+    const [current, previous, totalStudents, activeStudents, totalStaff, pendingNotes] = await Promise.all([
+      computePeriod(startDate),
+      computePeriod(prevStartDate, startDate), // previous window is [prevStart, start)
       // Total students in center
       prisma.student.count({ where: { ...centerFilter, isActive: true } }),
       // Students with sessions today
@@ -384,59 +505,120 @@ export async function getDashboardSummary(req: Request, res: Response, next: Nex
           },
         },
       }),
-      // Staff count
-      prisma.user.count({ where: { ...centerFilter, isActive: true } }),
-      // Sessions today (active and scheduled)
+      // Staff count (center-wide, not scoped to the user's students)
+      prisma.user.count({ where: { centerId, isActive: true } }),
+      // Pending session notes for the current user: completed sessions they ran
+      // (or that involve their students) where the SOAP note isn't finalized.
       prisma.session.count({
         where: {
-          OR: [
-            { status: 'IN_PROGRESS', startedAt: { gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()) } },
-            { status: 'SCHEDULED', scheduledFor: { gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()) } },
-          ],
+          status: 'COMPLETED',
+          ...(req.user?.role === 'THERAPIST'
+            ? { therapistId: req.user.userId }
+            : {}),
           ...sessionCenterFilter,
-        },
-      }),
-      // All sessions in period
-      prisma.session.findMany({
-        where: {
-          OR: [
-            { startedAt: { gte: startDate } },
-            { scheduledFor: { gte: startDate } },
-          ],
-          ...sessionCenterFilter,
-        },
-        select: { id: true, status: true, startedAt: true, scheduledFor: true },
-        orderBy: { startedAt: { sort: 'desc', nulls: 'last' } },
-      }),
-      // Trials count in period (via session relation)
-      prisma.trial.count({
-        where: {
-          session: { startedAt: { gte: startDate }, ...sessionCenterFilter },
-        },
-      }),
-      // Behavior records count in period
-      prisma.behaviorRecord.count({
-        where: {
-          session: { startedAt: { gte: startDate }, ...sessionCenterFilter },
+          OR: [{ soapNote: null }, { soapNote: { isFinalized: false } }],
         },
       }),
     ]);
 
-    const completedSessions = allPeriodSessions.filter(s => s.status === 'COMPLETED').length;
-    const inProgressSessions = allPeriodSessions.filter(s => s.status === 'IN_PROGRESS').length;
+    const pct = (cur: number, prev: number): number | null => {
+      if (prev === 0) return cur === 0 ? 0 : null; // no previous baseline → no trend
+      return Math.round(((cur - prev) / prev) * 100);
+    };
+
+    // ── Daily series (last 7 days) for sparklines ──────────────────────────
+    const seriesStart = new Date(now);
+    seriesStart.setDate(seriesStart.getDate() - 6);
+    seriesStart.setHours(0, 0, 0, 0);
+
+    const dayKey = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    const [recentSessions, recentStudents, recentStaff, recentTrials, recentBehaviors] = await Promise.all([
+      prisma.session.findMany({
+        where: {
+          OR: [{ startedAt: { gte: seriesStart } }, { scheduledFor: { gte: seriesStart, lte: now } }],
+          ...sessionCenterFilter,
+        },
+        select: { id: true, status: true, startedAt: true, scheduledFor: true },
+      }),
+      prisma.student.findMany({ where: { ...centerFilter, createdAt: { gte: seriesStart } }, select: { createdAt: true } }),
+      prisma.user.findMany({ where: { ...centerFilter, createdAt: { gte: seriesStart } }, select: { createdAt: true } }),
+      prisma.trial.findMany({
+        where: { session: { startedAt: { gte: seriesStart }, ...sessionCenterFilter } },
+        select: { id: true, session: { select: { startedAt: true } } },
+      }),
+      prisma.behaviorRecord.findMany({
+        where: { session: { startedAt: { gte: seriesStart }, ...sessionCenterFilter } },
+        select: { id: true, session: { select: { startedAt: true } } },
+      }),
+    ]);
+
+    const buckets: Record<string, { sessions: number; completed: number; inProgress: number; trials: number; behaviors: number; newStudents: number; newStaff: number }> = {};
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(seriesStart);
+      d.setDate(d.getDate() + i);
+      buckets[dayKey(d)] = { sessions: 0, completed: 0, inProgress: 0, trials: 0, behaviors: 0, newStudents: 0, newStaff: 0 };
+    }
+
+    recentSessions.forEach((s) => {
+      const key = s.startedAt ? dayKey(s.startedAt) : s.scheduledFor ? dayKey(s.scheduledFor) : null;
+      if (!key || !buckets[key]) return;
+      buckets[key].sessions += 1;
+      if (s.status === 'COMPLETED') buckets[key].completed += 1;
+      if (s.status === 'IN_PROGRESS') buckets[key].inProgress += 1;
+    });
+    recentTrials.forEach((t) => {
+      const key = t.session.startedAt ? dayKey(t.session.startedAt) : null;
+      if (key && buckets[key]) buckets[key].trials += 1;
+    });
+    recentBehaviors.forEach((b) => {
+      const key = b.session.startedAt ? dayKey(b.session.startedAt) : null;
+      if (key && buckets[key]) buckets[key].behaviors += 1;
+    });
+    recentStudents.forEach((s) => {
+      const key = dayKey(s.createdAt);
+      if (buckets[key]) buckets[key].newStudents += 1;
+    });
+    recentStaff.forEach((u) => {
+      const key = dayKey(u.createdAt);
+      if (buckets[key]) buckets[key].newStaff += 1;
+    });
+
+    const series = Object.entries(buckets)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, counts]) => ({ date, ...counts }));
 
     res.json({
       summary: {
         totalStudents,
         activeStudents,
         totalStaff,
-        sessionsToday,
-        periodCompleted: completedSessions,
-        periodInProgress: inProgressSessions,
-        periodTotal: allPeriodSessions.length,
-        periodTrials,
-        periodBehaviors,
+        pendingNotes,
+        sessionsToday: current.sessionsToday,
+        scheduledToday: current.scheduledToday,
+        periodCompleted: current.periodCompleted,
+        periodInProgress: current.periodInProgress,
+        periodTotal: current.periodTotal,
+        periodTrials: current.periodTrials,
+        periodBehaviors: current.periodBehaviors,
         period,
+        trends: {
+          sessionsToday: pct(current.sessionsToday, previous.sessionsToday),
+          scheduledToday: pct(current.scheduledToday, previous.scheduledToday),
+          periodCompleted: pct(current.periodCompleted, previous.periodCompleted),
+          periodInProgress: pct(current.periodInProgress, previous.periodInProgress),
+          periodTotal: pct(current.periodTotal, previous.periodTotal),
+          periodTrials: pct(current.periodTrials, previous.periodTrials),
+          periodBehaviors: pct(current.periodBehaviors, previous.periodBehaviors),
+          newStudents: pct(current.newStudents, previous.newStudents),
+          newStaff: pct(current.newStaff, previous.newStaff),
+        },
+        series,
       },
     });
   } catch (error) {
@@ -456,17 +638,14 @@ export async function getCalendarSessions(req: Request, res: Response, next: Nex
       return;
     }
 
+    const studentScope = await getSessionScope(req.user!);
     const where: any = {
+      ...studentScope,
       OR: [
         { scheduledFor: { gte: new Date(start), lte: new Date(end) } },
         { startedAt: { gte: new Date(start), lte: new Date(end) } },
       ],
     };
-
-    // Center-level filter for admins
-    if (req.user?.role === 'CENTER_ADMIN' && !req.query.studentId) {
-      where.student = { centerId: req.user.centerId };
-    }
 
     const sessions = await prisma.session.findMany({
       where,

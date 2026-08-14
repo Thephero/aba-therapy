@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function LoginPage() {
@@ -82,6 +83,12 @@ export default function LoginPage() {
               {loading ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
+          <p className="mt-4 text-center text-sm text-gray-500">
+            New here?{' '}
+            <Link href="/manual" className="font-medium text-indigo-600 hover:text-indigo-800">
+              Read the User Guide
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>

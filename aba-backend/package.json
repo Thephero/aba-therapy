@@ -12,9 +12,10 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx src/seed.ts",
     "db:studio": "prisma studio",
-    "db:push:prod": "prisma db push --schema prisma/schema.postgres.prisma",
-    "db:generate:prod": "prisma generate --schema prisma/schema.postgres.prisma",
-    "db:seed:prod": "node dist/seed.js",
+    "db:restore:local": "prisma generate",
+    "db:push:prod": "node scripts/check-prod-db.js && prisma db push --schema prisma/schema.postgres.prisma",
+    "db:generate:prod": "node scripts/check-prod-db.js && prisma generate --schema prisma/schema.postgres.prisma",
+    "db:seed:prod": "node scripts/check-prod-db.js && node dist/seed.js",
     "db:setup:prod": "npm run db:push:prod && npm run db:seed:prod",
     "lint": "eslint src/**/*.ts",
     "typecheck": "tsc --noEmit"

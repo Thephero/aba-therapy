@@ -17,9 +17,13 @@ export async function generateSOAPNote(sessionId: string): Promise<SOAPNoteConte
       student: true,
       therapist: true,
       trials: {
-        include: { target: true },
+        include: {
+          target: { include: { program: true } },
+        },
       },
       behaviorRecords: true,
+      mandRecords: true,
+      programs: { include: { program: { include: { targets: true } } } },
     },
   });
 
@@ -34,35 +38,33 @@ export async function generateSOAPNote(sessionId: string): Promise<SOAPNoteConte
   const promptedTrials = session.trials.filter((t) => t.promptLevelUsed !== null).length;
   const accuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
   const behaviorCount = session.behaviorRecords.length;
+  const mandCount = session.mandRecords.length;
 
   // DTT vs NET
   const dttTrials = session.trials.filter((t) => t.trialType === 'DTT');
   const netTrials = session.trials.filter((t) => t.trialType === 'NET');
 
-  // Target breakdown
-  const targetMap = new Map<string, { correct: number; total: number; name: string }>();
+  // Per-program breakdown: group targets (and their trials) by program.
+  const programMap = new Map<string, { programName: string; correct: number; total: number; targets: Set<string> }>();
   for (const trial of session.trials) {
-    const targetId = trial.targetId;
-    if (!targetId) continue;
-    if (!targetMap.has(targetId)) {
-      targetMap.set(targetId, {
-        correct: 0,
-        total: 0,
-        name: trial.target?.skill || trial.target?.domain || 'Unknown',
-      });
+    const program = trial.target?.program;
+    const programName = program?.name || 'Unassigned'; // target w/o a program
+    if (!programMap.has(programName)) {
+      programMap.set(programName, { programName, correct: 0, total: 0, targets: new Set() });
     }
-    const entry = targetMap.get(targetId)!;
+    const entry = programMap.get(programName)!;
     entry.total++;
     if (trial.correct === true) entry.correct++;
+    if (trial.target?.skill) entry.targets.add(trial.target.skill);
   }
 
-  let targetSummary = '';
-  targetMap.forEach((entry) => {
+  let programSummary = '';
+  programMap.forEach((entry) => {
     const pct = entry.total > 0 ? Math.round((entry.correct / entry.total) * 100) : 0;
-    targetSummary += `- ${entry.name}: ${entry.correct}/${entry.total} correct (${pct}%)\n`;
+    programSummary += `- ${entry.programName}: ${entry.correct}/${entry.total} correct (${pct}%) — targets: ${Array.from(entry.targets).join(', ') || '—'}\n`;
   });
 
-  const subjective = `Session with ${studentName}. ${totalTrials > 0 ? `A total of ${totalTrials} trials were conducted across ${targetMap.size} target(s).` : 'No formal trials were recorded.'}`;
+  const subjective = `Session with ${studentName}. ${totalTrials > 0 ? `A total of ${totalTrials} trials were conducted across ${programMap.size} program(s).` : 'No formal trials were recorded.'}`;
 
   const objective = [
     `DTT Trials: ${dttTrials.length} | NET Trials: ${netTrials.length}`,
@@ -70,10 +72,11 @@ export async function generateSOAPNote(sessionId: string): Promise<SOAPNoteConte
     `Correct: ${correctTrials} | Incorrect: ${incorrectTrials} | Prompted: ${promptedTrials}`,
     `Overall Accuracy: ${accuracy}%`,
     '',
-    `Target Breakdown:`,
-    targetSummary || 'N/A',
+    `Program Breakdown:`,
+    programSummary || 'N/A',
     '',
     `Behavior Incidents: ${behaviorCount}`,
+    `Mands Recorded: ${mandCount}`,
     `Duration: ${session.startedAt && session.endedAt ? Math.round((session.endedAt.getTime() - session.startedAt.getTime()) / 60000) + ' minutes' : 'In progress'}`,
   ].join('\n');
 

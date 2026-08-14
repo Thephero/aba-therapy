@@ -8,9 +8,20 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Modal } from '@/components/ui/modal';
-import { Search, Plus, Target, User, Pencil, ArrowLeft } from 'lucide-react';
+import { Search, Plus, Target, User, Pencil, ArrowLeft, Settings2, Save } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import Link from 'next/link';
+import { useToast } from '@/components/ui/toast';
+
+const DOMAINS = [
+  'Communication', 'Social', 'Daily Living', 'Motor', 'Academic', 'Play & Leisure', 'Self-Management', 'Other',
+];
+
+const statusColors: Record<string, 'success' | 'warning' | 'default'> = {
+  IN_PROGRESS: 'default',
+  MASTERED: 'success',
+  ON_HOLD: 'warning',
+};
 
 export default function ProgramsPage() {
   const [search, setSearch] = useState('');
@@ -20,8 +31,23 @@ export default function ProgramsPage() {
   const [form, setForm] = useState({ studentId: '', name: '', description: '' });
   const [editForm, setEditForm] = useState({ name: '', description: '' });
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const preselectedStudentId = searchParams?.get('studentId') || '';
+
+  // ── Manage program (targets) modal state ──
+  const [manageProgram, setManageProgram] = useState<any>(null);
+  const [showTargetForm, setShowTargetForm] = useState(false);
+  const [editingTarget, setEditingTarget] = useState<any>(null);
+  const [targetForm, setTargetForm] = useState({
+    domain: DOMAINS[0],
+    skill: '',
+    promptHierarchy: '',
+    masteryPercentage: '80',
+    masteryConsecutive: '3',
+    status: 'IN_PROGRESS',
+    notes: '',
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ['programs', search],
@@ -50,7 +76,9 @@ export default function ProgramsPage() {
       queryClient.invalidateQueries({ queryKey: ['programs'] });
       setShowAddModal(false);
       setForm({ studentId: '', name: '', description: '' });
+      showToast('Program created', 'success');
     },
+    onError: (err: any) => showToast(err?.response?.data?.error || 'Failed to create program', 'error'),
   });
 
   const updateMutation = useMutation({
@@ -61,13 +89,89 @@ export default function ProgramsPage() {
       queryClient.invalidateQueries({ queryKey: ['programs'] });
       setShowEditModal(false);
       setEditingProgram(null);
+      showToast('Program updated', 'success');
     },
+    onError: (err: any) => showToast(err?.response?.data?.error || 'Failed to update program', 'error'),
   });
 
   const openEdit = (program: any) => {
     setEditingProgram(program);
     setEditForm({ name: program.name, description: program.description || '' });
     setShowEditModal(true);
+  };
+
+  // ── Target CRUD ──────────────────────────────────────────────────────────
+  const refreshManage = () => {
+    queryClient.invalidateQueries({ queryKey: ['program', manageProgram?.id] });
+    queryClient.invalidateQueries({ queryKey: ['programs'] });
+  };
+
+  const saveTargetMutation = useMutation({
+    mutationFn: async (body: any) => {
+      if (editingTarget) {
+        await api.patch(`/programs/${manageProgram.id}/targets/${editingTarget.id}`, body);
+      } else {
+        await api.post(`/programs/${manageProgram.id}/targets`, body);
+      }
+    },
+    onSuccess: () => {
+      refreshManage();
+      setShowTargetForm(false);
+      setEditingTarget(null);
+      setTargetForm({ domain: DOMAINS[0], skill: '', promptHierarchy: '', masteryPercentage: '80', masteryConsecutive: '3', status: 'IN_PROGRESS', notes: '' });
+      showToast(editingTarget ? 'Target updated' : 'Target added', 'success');
+    },
+    onError: (err: any) => showToast(err?.response?.data?.error || 'Failed to save target', 'error'),
+  });
+
+  const { data: manageData } = useQuery({
+    queryKey: ['program', manageProgram?.id],
+    queryFn: async () => {
+      const { data } = await api.get(`/programs/${manageProgram.id}`);
+      return data.program;
+    },
+    enabled: !!manageProgram,
+  });
+
+  const openManage = (program: any) => {
+    setManageProgram(program);
+    setShowTargetForm(false);
+    setEditingTarget(null);
+  };
+
+  const openNewTarget = () => {
+    setEditingTarget(null);
+    setTargetForm({ domain: DOMAINS[0], skill: '', promptHierarchy: '', masteryPercentage: '80', masteryConsecutive: '3', status: 'IN_PROGRESS', notes: '' });
+    setShowTargetForm(true);
+  };
+
+  const openEditTarget = (target: any) => {
+    setEditingTarget(target);
+    let parsed: string[] = [];
+    try { parsed = JSON.parse(target.promptHierarchy || '[]'); } catch { parsed = []; }
+    setTargetForm({
+      domain: target.domain,
+      skill: target.skill,
+      promptHierarchy: parsed.join(', '),
+      masteryPercentage: String(target.masteryPercentage ?? 80),
+      masteryConsecutive: String(target.masteryConsecutive ?? 3),
+      status: target.status || 'IN_PROGRESS',
+      notes: target.notes || '',
+    });
+    setShowTargetForm(true);
+  };
+
+  const submitTarget = () => {
+    const promptLevels = targetForm.promptHierarchy.split(',').map((s) => s.trim()).filter(Boolean);
+    saveTargetMutation.mutate({
+      domain: targetForm.domain,
+      skill: targetForm.skill,
+      promptHierarchy: promptLevels,
+      masteryPercentage: parseFloat(targetForm.masteryPercentage) || 80,
+      masteryConsecutive: parseInt(targetForm.masteryConsecutive) || 3,
+      status: targetForm.status,
+      notes: targetForm.notes || undefined,
+    });
   };
 
   return (
@@ -136,6 +240,9 @@ export default function ProgramsPage() {
                     <tr key={program.id} className="hover:bg-gray-50 transition-colors">
                       <td className="py-3 pr-4">
                         <span className="font-medium text-gray-900">{program.name}</span>
+                        {program.description && (
+                          <p className="text-xs text-gray-400 mt-0.5 max-w-xs truncate">{program.description}</p>
+                        )}
                       </td>
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-2 text-gray-600">
@@ -144,8 +251,8 @@ export default function ProgramsPage() {
                         </div>
                       </td>
                       <td className="py-3 pr-4">
-                        <Badge variant={program.status === 'active' ? 'success' : 'warning'}>
-                          {program.status || 'Active'}
+                        <Badge variant={statusColors[program.status] || 'default'}>
+                          {program.status || 'IN_PROGRESS'}
                         </Badge>
                       </td>
                       <td className="py-3 pr-4">
@@ -158,10 +265,16 @@ export default function ProgramsPage() {
                         {formatDate(program.createdAt)}
                       </td>
                       <td className="py-3">
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(program)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                          Edit
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => openManage(program)}>
+                            <Settings2 className="h-3.5 w-3.5" />
+                            Manage
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => openEdit(program)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                            Edit
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -279,6 +392,168 @@ export default function ProgramsPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Manage Program Modal (targets) */}
+      <Modal
+        open={!!manageProgram}
+        onClose={() => setManageProgram(null)}
+        title={manageProgram?.name || 'Program'}
+        description={`${manageData?.student?.name || ''} · ${manageData?.description || 'Manage targets for this program'}`}
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">
+                Targets ({manageData?.targets?.length || 0})
+              </h3>
+              <p className="text-xs text-gray-500">Each target is a specific skill worked on within this program</p>
+            </div>
+            <Button size="sm" onClick={openNewTarget}>
+              <Plus className="h-3.5 w-3.5" />
+              Add Target
+            </Button>
+          </div>
+
+          {manageData?.targets?.length > 0 ? (
+            <div className="space-y-2">
+              {manageData.targets.map((target: any) => (
+                <div key={target.id} className="rounded-lg border border-gray-200 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-[10px]">{target.domain}</Badge>
+                        <span className="font-medium text-gray-900">{target.skill}</span>
+                        <Badge variant={statusColors[target.status] || 'default'} className="text-[10px]">
+                          {target.status || 'IN_PROGRESS'}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Mastery: {target.masteryPercentage}% × {target.masteryConsecutive} consecutive
+                        {(() => {
+                          try {
+                            const levels = JSON.parse(target.promptHierarchy || '[]');
+                            return levels.length > 0 ? ` · Prompts: ${levels.join(', ')}` : '';
+                          } catch { return ''; }
+                        })()}
+                      </p>
+                      {target.notes && <p className="mt-1 text-xs text-gray-400">{target.notes}</p>}
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => openEditTarget(target)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-sm text-gray-400">
+              No targets yet — add one to define what skills are worked on.
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Add/Edit Target Modal */}
+      <Modal
+        open={showTargetForm}
+        onClose={() => setShowTargetForm(false)}
+        title={editingTarget ? 'Edit Target' : 'Add Target'}
+        description={`${manageProgram?.name || ''} — ${editingTarget ? 'Update the target details' : 'Define a new skill to work on'}`}
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Domain *</label>
+              <select
+                value={targetForm.domain}
+                onChange={(e) => setTargetForm({ ...targetForm, domain: e.target.value })}
+                className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-colors"
+              >
+                {DOMAINS.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                value={targetForm.status}
+                onChange={(e) => setTargetForm({ ...targetForm, status: e.target.value })}
+                className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-colors"
+              >
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="MASTERED">Mastered</option>
+                <option value="ON_HOLD">On Hold</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Skill / Target Name *</label>
+            <Input
+              value={targetForm.skill}
+              onChange={(e) => setTargetForm({ ...targetForm, skill: e.target.value })}
+              placeholder="e.g., Labels 10 common objects, Requests preferred items..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Prompt Hierarchy <span className="text-gray-400 font-normal">(comma-separated, most-to-least)</span>
+            </label>
+            <Input
+              value={targetForm.promptHierarchy}
+              onChange={(e) => setTargetForm({ ...targetForm, promptHierarchy: e.target.value })}
+              placeholder="e.g., Full Physical, Partial Physical, Model, Verbal, Gestural, Independent"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mastery %</label>
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                value={targetForm.masteryPercentage}
+                onChange={(e) => setTargetForm({ ...targetForm, masteryPercentage: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Consecutive sessions</label>
+              <Input
+                type="number"
+                min={1}
+                value={targetForm.masteryConsecutive}
+                onChange={(e) => setTargetForm({ ...targetForm, masteryConsecutive: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <textarea
+              value={targetForm.notes}
+              onChange={(e) => setTargetForm({ ...targetForm, notes: e.target.value })}
+              rows={2}
+              placeholder="Optional notes on teaching strategy..."
+              className="flex w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-colors resize-none"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setShowTargetForm(false)}>Cancel</Button>
+            <Button
+              onClick={submitTarget}
+              disabled={saveTargetMutation.isPending || !targetForm.skill.trim()}
+            >
+              <Save className="h-4 w-4" />
+              {saveTargetMutation.isPending ? 'Saving...' : editingTarget ? 'Save Changes' : 'Add Target'}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -1,18 +1,19 @@
 import { prisma } from '../utils/prisma';
+import { getStudentScope, canAccessStudent } from '../utils/access';
 import { Request, Response, NextFunction } from 'express';
 
 export async function listStudents(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const centerId = req.user?.centerId;
     const includeArchived = req.query.includeArchived as string;
 
-    const where: any = { centerId };
+    const where: any = { ...(await getStudentScope(req.user!)) };
     if (includeArchived !== 'true') where.isActive = true;
 
     const students = await prisma.student.findMany({
       where,
       include: {
         _count: { select: { programs: true, sessions: true } },
+        parent: { select: { id: true, name: true, email: true } },
         supervisors: {
           include: { supervisor: { select: { id: true, name: true, email: true } } },
         },
@@ -31,9 +32,15 @@ export async function listStudents(req: Request, res: Response, next: NextFuncti
 
 export async function getStudent(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const    student = await prisma.student.findUnique({
+    if (!req.user || !(await canAccessStudent(req.user, req.params.id as string))) {
+      res.status(403).json({ error: 'You do not have access to this student' });
+      return;
+    }
+
+    const student = await prisma.student.findUnique({
       where: { id: req.params.id as string },
       include: {
+        parent: { select: { id: true, name: true, email: true } },
         supervisors: {
           include: { supervisor: { select: { id: true, name: true, email: true } } },
         },
@@ -82,7 +89,7 @@ export async function createStudent(req: Request, res: Response, next: NextFunct
 export async function updateStudent(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const body = req.body as Record<string, any>;
-    const { name, dateOfBirth, guardianName, guardianEmail, guardianPhone, isActive } = body;
+    const { name, dateOfBirth, guardianName, guardianEmail, guardianPhone, isActive, parentId } = body;
     const data: any = {};
 
     if (name) data.name = name;
@@ -91,10 +98,15 @@ export async function updateStudent(req: Request, res: Response, next: NextFunct
     if (guardianEmail !== undefined) data.guardianEmail = guardianEmail;
     if (guardianPhone !== undefined) data.guardianPhone = guardianPhone;
     if (isActive !== undefined) data.isActive = isActive;
+    // Link/unlink a parent account (empty string unlinks).
+    if (parentId !== undefined) data.parentId = parentId === '' ? null : parentId;
 
     const student = await prisma.student.update({
       where: { id: req.params.id as string },
       data,
+      include: {
+        parent: { select: { id: true, name: true, email: true } },
+      },
     });
 
     res.json({ student });

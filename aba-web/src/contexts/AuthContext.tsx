@@ -7,7 +7,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'center_admin' | 'supervisor' | 'therapist';
+  role: 'center_admin' | 'supervisor' | 'therapist' | 'parent';
   centerId: string;
   centerName: string;
 }

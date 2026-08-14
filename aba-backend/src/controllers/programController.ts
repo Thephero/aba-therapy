@@ -1,10 +1,12 @@
 import { prisma } from '../utils/prisma';
+import { getStudentScope } from '../utils/access';
 import { Request, Response, NextFunction } from 'express';
 
 export async function listPrograms(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { studentId } = req.query;
-    const where: any = {};
+    const scope = await getStudentScope(req.user!);
+    const where: any = { student: scope };
 
     if (studentId) where.studentId = studentId as string;
 
@@ -25,9 +27,9 @@ export async function listPrograms(req: Request, res: Response, next: NextFuncti
 
 export async function getProgram(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const program = await prisma.program.findUnique({
-      where: { id: req.params.id as string },
-      include: { targets: { orderBy: { createdAt: 'asc' } } },
+    const program = await prisma.program.findFirst({
+      where: { id: req.params.id as string, student: await getStudentScope(req.user!) },
+      include: { targets: { orderBy: { createdAt: 'asc' } }, student: true },
     });
 
     if (!program) {

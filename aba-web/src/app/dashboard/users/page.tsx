@@ -17,6 +17,7 @@ const ROLES = [
   { value: 'CENTER_ADMIN', label: 'Center Admin' },
   { value: 'SUPERVISOR', label: 'Supervisor' },
   { value: 'THERAPIST', label: 'Therapist' },
+  { value: 'PARENT', label: 'Parent / Guardian' },
 ];
 
 export default function UsersPage() {

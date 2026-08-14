@@ -11,13 +11,13 @@ import { Input } from '@/components/ui/input';
 import {
   ArrowLeft, Clock, User, Target, Activity, Brain, Stethoscope,
   CheckCircle2, XCircle, AlertTriangle, Plus, Play, Square,
-  BookOpen, Save, FileText, Sparkles, Users,
+  BookOpen, Save, FileText, Sparkles, Users, MessageCircle, Timer,
 } from 'lucide-react';
 import { formatDateTime, formatStatus } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const statusColors: Record<string, 'warning' | 'success' | 'default' | 'danger'> = {
   IN_PROGRESS: 'warning',
@@ -34,6 +34,11 @@ const promptLevels = [
   'Partial Physical',
   'Full Physical',
 ];
+
+// Default ABC options when the supervisor hasn't defined custom ones.
+const DEFAULT_ANTECEDENTS = ['Task demand', 'Instruction given', 'Attention removed', 'Denied access', 'Transition', 'Alone/Unoccupied', 'Tangible removed'];
+const DEFAULT_BEHAVIORS = ['Screaming', 'Hitting', 'Biting', 'Throwing', 'Elopement', 'Hand flapping', 'Crying'];
+const DEFAULT_CONSEQUENCES = ['Attention given', 'Demand removed', 'Redirected', 'Ignored', 'Blocked', 'Tangible given', 'Time away'];
 
 export default function SessionDetailPage() {
   const { id } = useParams() as { id: string };
@@ -112,9 +117,22 @@ export default function SessionDetailPage() {
   // ── Modals State ──
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [showBehaviorModal, setShowBehaviorModal] = useState(false);
+  const [showMandModal, setShowMandModal] = useState(false);
   const [showPreferenceModal, setShowPreferenceModal] = useState(false);
   const [showReinforcerModal, setShowReinforcerModal] = useState(false);
   const [showSOAPModal, setShowSOAPModal] = useState(false);
+
+  // ── Behavior plans for this student ──
+  const studentId = data?.student?.id;
+  const { data: behaviorPlans } = useQuery({
+    queryKey: ['behavior-plans', studentId],
+    queryFn: async () => {
+      const res = await api.get(`/students/${studentId}/behavior-plans`);
+      return res.data.plans;
+    },
+    enabled: !!studentId,
+  });
+  const activePlans = (behaviorPlans || []).filter((p: any) => p.isActive);
 
   // ── Trial Form ──
   const [trialForm, setTrialForm] = useState({
@@ -144,16 +162,76 @@ export default function SessionDetailPage() {
 
   // ── Behavior Form ──
   const [behaviorForm, setBehaviorForm] = useState({
+    behaviorPlanId: '',
     behaviorType: 'FREQUENCY',
     behaviorName: '',
     antecedent: '',
+    antecedentOther: '',
     behavior: '',
+    behaviorOther: '',
     consequence: '',
+    consequenceOther: '',
     frequency: 1,
     durationSec: 30,
     intensity: 3,
     notes: '',
   });
+
+  // Duration timer: start/stop counts elapsed seconds into durationSec.
+  const [timerRunning, setTimerRunning] = useState(false);
+  const timerStartRef = useRef<number | null>(null);
+  const timerAccumRef = useRef(0);
+  const timerTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopTimer = () => {
+    if (timerTickRef.current) clearInterval(timerTickRef.current);
+    timerTickRef.current = null;
+    if (timerRunning && timerStartRef.current) {
+      timerAccumRef.current += Math.floor((Date.now() - timerStartRef.current) / 1000);
+    }
+    timerStartRef.current = null;
+    setTimerRunning(false);
+    setBehaviorForm((prev) => ({ ...prev, durationSec: Math.max(timerAccumRef.current, 1) }));
+  };
+
+  const resetTimer = () => {
+    stopTimer();
+    timerAccumRef.current = 0;
+    setBehaviorForm((prev) => ({ ...prev, durationSec: 0 }));
+  };
+
+  useEffect(() => {
+    if (timerRunning) {
+      timerStartRef.current = Date.now();
+      timerTickRef.current = setInterval(() => {
+        if (timerStartRef.current) {
+          const elapsed = timerAccumRef.current + Math.floor((Date.now() - timerStartRef.current) / 1000);
+          setBehaviorForm((prev) => ({ ...prev, durationSec: elapsed }));
+        }
+      }, 250);
+    }
+    return () => { if (timerTickRef.current) clearInterval(timerTickRef.current); };
+  }, [timerRunning]);
+
+  const openBehaviorModal = () => {
+    // Prefer a supervisor-defined plan when one exists.
+    if (activePlans.length > 0) {
+      const first = activePlans[0];
+      setBehaviorForm({
+        behaviorPlanId: first.id,
+        behaviorType: first.dataType,
+        behaviorName: first.name,
+        antecedent: '', antecedentOther: '', behavior: '', behaviorOther: '', consequence: '', consequenceOther: '',
+        frequency: 1, durationSec: 0, intensity: 3, notes: '',
+      });
+    } else {
+      setBehaviorForm({ behaviorPlanId: '', behaviorType: 'FREQUENCY', behaviorName: '', antecedent: '', antecedentOther: '', behavior: '', behaviorOther: '', consequence: '', consequenceOther: '', frequency: 1, durationSec: 0, intensity: 3, notes: '' });
+    }
+    timerAccumRef.current = 0;
+    setTimerRunning(false);
+    if (timerTickRef.current) clearInterval(timerTickRef.current);
+    setShowBehaviorModal(true);
+  };
 
   const addBehaviorMutation = useMutation({
     mutationFn: async (form: typeof behaviorForm) => {
@@ -162,12 +240,37 @@ export default function SessionDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['session', id] });
-      setBehaviorForm({ behaviorType: 'FREQUENCY', behaviorName: '', antecedent: '', behavior: '', consequence: '', frequency: 1, durationSec: 30, intensity: 3, notes: '' });
+      stopTimer();
       setShowBehaviorModal(false);
       showToast('Behavior logged successfully', 'success');
     },
     onError: (error: any) => {
       showToast(error?.response?.data?.error || 'Failed to log behavior', 'error');
+    },
+  });
+
+  // ── Mand Form ──
+  const [mandForm, setMandForm] = useState({
+    mandType: 'SPONTANEOUS',
+    itemRequested: '',
+    promptLevelUsed: '',
+    independent: true,
+    notes: '',
+  });
+
+  const addMandMutation = useMutation({
+    mutationFn: async (form: typeof mandForm) => {
+      const { data } = await api.post(`/sessions/${id}/mands`, form);
+      return data.record;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['session', id] });
+      setMandForm({ mandType: 'SPONTANEOUS', itemRequested: '', promptLevelUsed: '', independent: true, notes: '' });
+      setShowMandModal(false);
+      showToast('Mand recorded', 'success');
+    },
+    onError: (error: any) => {
+      showToast(error?.response?.data?.error || 'Failed to record mand', 'error');
     },
   });
 
@@ -348,6 +451,11 @@ export default function SessionDetailPage() {
     ? Math.max(...data.trials.map((t: any) => t.trialNumber))
     : 0;
 
+  // SOAP notes can be written/edited while the session is running AND after it
+  // ends — until the note is finalized (co-signed or marked final).
+  const canEditSOAP = data.status === 'IN_PROGRESS'
+    || (data.status === 'COMPLETED' && !data.soapNote?.isFinalized);
+
   const duration = data.startedAt && data.endedAt
     ? `${Math.round((new Date(data.endedAt).getTime() - new Date(data.startedAt).getTime()) / 60000)} minutes`
     : data.startedAt
@@ -393,6 +501,20 @@ export default function SessionDetailPage() {
               <Activity className="h-4 w-4" />
               Duration: {duration}
             </span>
+            {(() => {
+              let modalities: string[] = [];
+              try { modalities = JSON.parse(data.sessionType || '[]'); } catch { modalities = []; }
+              if (modalities.length === 0 && data.sessionType && data.sessionType !== '[]') {
+                modalities = [data.sessionType]; // legacy single-string value
+              }
+              return modalities.length > 0 ? (
+                <span className="flex items-center gap-1">
+                  {modalities.map((m) => (
+                    <Badge key={m} variant="outline" className="text-[10px]">{m}</Badge>
+                  ))}
+                </span>
+              ) : null;
+            })()}
             {data.supervisor && (
               <span className="flex items-center gap-1.5">
                 <User className="h-4 w-4" />
@@ -463,14 +585,14 @@ export default function SessionDetailPage() {
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { setTrialForm(prev => ({ ...prev, trialNumber: lastTrialNumber + 1 })); setShowTrialModal(true); }}>
             <Play className="h-3.5 w-3.5" /> Record Trial
           </Button>
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowBehaviorModal(true)}>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={openBehaviorModal}>
             <AlertTriangle className="h-3.5 w-3.5" /> Log Behavior
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowMandModal(true)}>
+            <MessageCircle className="h-3.5 w-3.5" /> Record Mand
           </Button>
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowPreferenceModal(true)}>
             <Brain className="h-3.5 w-3.5" /> Preference
-          </Button>
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowReinforcerModal(true)}>
-            <Stethoscope className="h-3.5 w-3.5" /> Reinforcer
           </Button>
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => generateSOAPMutation.mutate()}>
             <Sparkles className="h-3.5 w-3.5" />
@@ -606,7 +728,7 @@ export default function SessionDetailPage() {
                 Behaviors ({data.behaviorRecords?.length || 0})
               </span>
               {data.status === 'IN_PROGRESS' && (
-                <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => setShowBehaviorModal(true)}>
+                <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={openBehaviorModal}>
                   <Plus className="h-3 w-3" /> Log
                 </Button>
               )}
@@ -636,8 +758,58 @@ export default function SessionDetailPage() {
                 No behavior records
                 {data.status === 'IN_PROGRESS' && (
                   <div className="mt-2">
-                    <Button size="sm" variant="ghost" className="gap-1 text-xs" onClick={() => setShowBehaviorModal(true)}>
+                    <Button size="sm" variant="ghost" className="gap-1 text-xs" onClick={openBehaviorModal}>
                       <Plus className="h-3 w-3" /> Log First Behavior
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Mand Records */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <MessageCircle className="h-5 w-5 text-gray-400" />
+                Mands ({data.mandRecords?.length || 0})
+              </span>
+              {data.status === 'IN_PROGRESS' && (
+                <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => setShowMandModal(true)}>
+                  <Plus className="h-3 w-3" /> Add
+                </Button>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {data.mandRecords?.length > 0 ? (
+              <div className="space-y-2">
+                {data.mandRecords.slice(0, 10).map((record: any) => (
+                  <div key={record.id} className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-gray-900">
+                        {record.itemRequested || 'Mand'}
+                      </span>
+                      <Badge variant={record.independent ? 'success' : 'warning'} className="text-[10px]">
+                        {record.independent ? 'Independent' : 'Prompted'}
+                      </Badge>
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      {record.mandType && <span>{record.mandType} </span>}
+                      {record.promptLevelUsed && <span>· {record.promptLevelUsed}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-6 text-center text-sm text-gray-400">
+                No mands recorded
+                {data.status === 'IN_PROGRESS' && (
+                  <div className="mt-2">
+                    <Button size="sm" variant="ghost" className="gap-1 text-xs" onClick={() => setShowMandModal(true)}>
+                      <Plus className="h-3 w-3" /> Record First Mand
                     </Button>
                   </div>
                 )}
@@ -681,42 +853,6 @@ export default function SessionDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Reinforcer Checks */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2">
-                <Stethoscope className="h-5 w-5 text-gray-400" />
-                Reinforcer Checks ({data.reinforcerChecks?.length || 0})
-              </span>
-              {data.status === 'IN_PROGRESS' && (
-                <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => setShowReinforcerModal(true)}>
-                  <Plus className="h-3 w-3" /> Add
-                </Button>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {data.reinforcerChecks?.length > 0 ? (
-              <div className="space-y-2">
-                {data.reinforcerChecks.map((rc: any) => (
-                  <div key={rc.id} className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm">
-                    <div className="font-medium text-gray-900">{rc.reinforcerUsed}</div>
-                    <div className="mt-1 text-gray-500">
-                      Effectiveness: {'★'.repeat(rc.effectivenessRating)}{'☆'.repeat(5 - rc.effectivenessRating)}{' '}
-                      ({rc.effectivenessRating}/5)
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-6 text-center text-sm text-gray-400">
-                No reinforcer checks yet
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {/* SOAP Notes */}
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -729,7 +865,7 @@ export default function SessionDetailPage() {
                 {data.soapNote?.isFinalized && (
                   <Badge variant="success" className="text-xs">Finalized</Badge>
                 )}
-                {data.status === 'IN_PROGRESS' && (
+                {canEditSOAP && (
                   <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={openSOAPModal}>
                     <BookOpen className="h-3 w-3" /> {data.soapNote ? 'Edit' : 'Write'}
                   </Button>
@@ -768,7 +904,7 @@ export default function SessionDetailPage() {
             ) : (
               <div className="py-6 text-center text-sm text-gray-400">
                 No SOAP notes yet
-                {data.status === 'IN_PROGRESS' && (
+                {canEditSOAP && (
                   <div className="mt-2">
                     <Button size="sm" variant="ghost" className="gap-1 text-xs" onClick={openSOAPModal}>
                       <Plus className="h-3 w-3" /> Write SOAP Notes
@@ -792,7 +928,7 @@ export default function SessionDetailPage() {
                 {data.soapNote.coSignedAt && ` on ${formatDateTime(data.soapNote.coSignedAt)}`}
               </div>
             ) : (
-              data.soapNote && isSupervisor && data.status === 'IN_PROGRESS' && (
+              data.soapNote && isSupervisor && !data.soapNote.isFinalized && (
                 <div className="mt-4 flex items-center gap-2 pt-3 border-t border-gray-100">
                   <Button
                     size="sm"
@@ -951,79 +1087,155 @@ export default function SessionDetailPage() {
       </Modal>
 
       {/* ── Add Behavior Record Modal ── */}
-      <Modal open={showBehaviorModal} onClose={() => setShowBehaviorModal(false)} title="Log Behavior" size="lg">
+      <Modal open={showBehaviorModal} onClose={() => { stopTimer(); setShowBehaviorModal(false); }} title="Log Behavior" size="lg">
         <div className="space-y-4">
-          {/* Behavior Type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Behavior Type</label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setBehaviorForm({ ...behaviorForm, behaviorType: 'FREQUENCY' })}
-                className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                  behaviorForm.behaviorType === 'FREQUENCY'
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                    : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                }`}
+          {activePlans.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Behavior Plan</label>
+              <select
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                value={behaviorForm.behaviorPlanId}
+                onChange={(e) => {
+                  const plan = activePlans.find((p: any) => p.id === e.target.value);
+                  stopTimer();
+                  if (plan) {
+                    setBehaviorForm((prev) => ({
+                      ...prev,
+                      behaviorPlanId: plan.id,
+                      behaviorType: plan.dataType,
+                      behaviorName: plan.name,
+                      durationSec: 0,
+                    }));
+                  } else {
+                    setBehaviorForm((prev) => ({ ...prev, behaviorPlanId: '' }));
+                  }
+                }}
               >
-                <Activity className="h-4 w-4" /> Frequency (count)
-              </button>
-              <button
-                type="button"
-                onClick={() => setBehaviorForm({ ...behaviorForm, behaviorType: 'DURATION' })}
-                className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                  behaviorForm.behaviorType === 'DURATION'
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                    : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <Clock className="h-4 w-4" /> Duration (time)
-              </button>
+                <option value="">— No plan (log manually) —</option>
+                {activePlans.map((p: any) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.dataType === 'FREQUENCY' ? 'Frequency' : 'Duration'})
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-400">
+                When a plan is chosen, the data type is set by the supervisor.
+              </p>
             </div>
-          </div>
+          )}
+
+          {!behaviorForm.behaviorPlanId && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Behavior Type</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBehaviorForm({ ...behaviorForm, behaviorType: 'FREQUENCY' })}
+                  className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    behaviorForm.behaviorType === 'FREQUENCY'
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                      : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <Activity className="h-4 w-4" /> Frequency (count)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBehaviorForm({ ...behaviorForm, behaviorType: 'DURATION' })}
+                  className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    behaviorForm.behaviorType === 'DURATION'
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                      : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <Clock className="h-4 w-4" /> Duration (time)
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Behavior Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Behavior Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Behavior Name {!behaviorForm.behaviorPlanId && '*'}</label>
             <Input
               placeholder="e.g., Hand flapping, Aggression, Elopement..."
               value={behaviorForm.behaviorName}
               onChange={(e) => setBehaviorForm({ ...behaviorForm, behaviorName: e.target.value })}
+              disabled={!!behaviorForm.behaviorPlanId}
             />
           </div>
 
-          {/* Antecedent, Behavior, Consequence (ABC) */}
+          {/* Antecedent, Behavior, Consequence (ABC) dropdowns */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Antecedent</label>
-              <textarea
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[70px]"
-                placeholder="What happened before?"
+              <select
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 value={behaviorForm.antecedent}
                 onChange={(e) => setBehaviorForm({ ...behaviorForm, antecedent: e.target.value })}
-              />
+              >
+                <option value="">— Select or type —</option>
+                {(activePlans.find((p: any) => p.id === behaviorForm.behaviorPlanId)?.abcOptions?.antecedents || DEFAULT_ANTECEDENTS).map((opt: string) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+                <option value="__other">Other (type below)</option>
+              </select>
+              {behaviorForm.antecedent === '__other' && (
+                <Input
+                  className="mt-1"
+                  placeholder="Describe the antecedent..."
+                  value={behaviorForm.antecedentOther}
+                  onChange={(e) => setBehaviorForm({ ...behaviorForm, antecedentOther: e.target.value })}
+                />
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Behavior</label>
-              <textarea
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[70px]"
-                placeholder="What did the behavior look like?"
+              <select
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 value={behaviorForm.behavior}
                 onChange={(e) => setBehaviorForm({ ...behaviorForm, behavior: e.target.value })}
-              />
+              >
+                <option value="">— Select or type —</option>
+                {(activePlans.find((p: any) => p.id === behaviorForm.behaviorPlanId)?.abcOptions?.behaviors || DEFAULT_BEHAVIORS).map((opt: string) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+                <option value="__other">Other (type below)</option>
+              </select>
+              {behaviorForm.behavior === '__other' && (
+                <Input
+                  className="mt-1"
+                  placeholder="Describe the behavior..."
+                  value={behaviorForm.behaviorOther}
+                  onChange={(e) => setBehaviorForm({ ...behaviorForm, behaviorOther: e.target.value })}
+                />
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Consequence</label>
-              <textarea
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[70px]"
-                placeholder="What happened after?"
+              <select
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 value={behaviorForm.consequence}
                 onChange={(e) => setBehaviorForm({ ...behaviorForm, consequence: e.target.value })}
-              />
+              >
+                <option value="">— Select or type —</option>
+                {(activePlans.find((p: any) => p.id === behaviorForm.behaviorPlanId)?.abcOptions?.consequences || DEFAULT_CONSEQUENCES).map((opt: string) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+                <option value="__other">Other (type below)</option>
+              </select>
+              {behaviorForm.consequence === '__other' && (
+                <Input
+                  className="mt-1"
+                  placeholder="Describe the consequence..."
+                  value={behaviorForm.consequenceOther}
+                  onChange={(e) => setBehaviorForm({ ...behaviorForm, consequenceOther: e.target.value })}
+                />
+              )}
             </div>
           </div>
 
-          {/* Frequency or Duration */}
+          {/* Frequency or Duration (with built-in timer) */}
           {behaviorForm.behaviorType === 'FREQUENCY' ? (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Frequency (count)</label>
@@ -1036,13 +1248,30 @@ export default function SessionDetailPage() {
             </div>
           ) : (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Duration (seconds)</label>
-              <Input
-                type="number"
-                min={1}
-                value={behaviorForm.durationSec}
-                onChange={(e) => setBehaviorForm({ ...behaviorForm, durationSec: parseInt(e.target.value) || 30 })}
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={behaviorForm.durationSec}
+                    onChange={(e) => setBehaviorForm({ ...behaviorForm, durationSec: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant={timerRunning ? 'destructive' : 'default'}
+                  onClick={() => setTimerRunning((r) => !r)}
+                  className="gap-1.5 whitespace-nowrap"
+                >
+                  <Timer className="h-4 w-4" />
+                  {timerRunning ? 'Stop' : 'Start Timer'}
+                </Button>
+                <Button type="button" variant="outline" onClick={resetTimer} className="whitespace-nowrap">
+                  Reset
+                </Button>
+              </div>
+              <p className="mt-1 text-xs text-gray-400">Seconds — use the built-in timer instead of a watch.</p>
             </div>
           )}
 
@@ -1080,8 +1309,129 @@ export default function SessionDetailPage() {
 
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setShowBehaviorModal(false)}>Cancel</Button>
-            <Button onClick={() => addBehaviorMutation.mutate(behaviorForm)} disabled={addBehaviorMutation.isPending}>
+            <Button
+              onClick={() => addBehaviorMutation.mutate({
+                ...behaviorForm,
+                antecedent: behaviorForm.antecedent === '__other' ? behaviorForm.antecedentOther : behaviorForm.antecedent,
+                behavior: behaviorForm.behavior === '__other' ? behaviorForm.behaviorOther : behaviorForm.behavior,
+                consequence: behaviorForm.consequence === '__other' ? behaviorForm.consequenceOther : behaviorForm.consequence,
+              })}
+              disabled={addBehaviorMutation.isPending}
+            >
               {addBehaviorMutation.isPending ? 'Saving...' : 'Save Behavior'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Add Mand Record Modal ── */}
+      <Modal open={showMandModal} onClose={() => setShowMandModal(false)} title="Record Mand" description="Log a request (mand) made by the learner" size="md">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mand Type</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setMandForm({ ...mandForm, mandType: 'SPONTANEOUS' })}
+                className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  mandForm.mandType === 'SPONTANEOUS'
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <Sparkles className="h-4 w-4" /> Spontaneous
+              </button>
+              <button
+                type="button"
+                onClick={() => setMandForm({ ...mandForm, mandType: 'PROMPTED' })}
+                className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  mandForm.mandType === 'PROMPTED'
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <AlertTriangle className="h-4 w-4" /> Prompted
+              </button>
+              <button
+                type="button"
+                onClick={() => setMandForm({ ...mandForm, mandType: 'ECHOIC' })}
+                className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  mandForm.mandType === 'ECHOIC'
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <MessageCircle className="h-4 w-4" /> Echoic
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Item / Request *</label>
+            <Input
+              placeholder="e.g., bubbles, water, swing, 'I want iPad'"
+              value={mandForm.itemRequested}
+              onChange={(e) => setMandForm({ ...mandForm, itemRequested: e.target.value })}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Prompt Level</label>
+              <select
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                value={mandForm.promptLevelUsed}
+                onChange={(e) => setMandForm({ ...mandForm, promptLevelUsed: e.target.value })}
+              >
+                <option value="">— None / Independent —</option>
+                {promptLevels.map((level) => (
+                  <option key={level} value={level}>{level}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Outcome</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMandForm({ ...mandForm, independent: true })}
+                  className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    mandForm.independent
+                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                      : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <CheckCircle2 className="h-4 w-4" /> Independent
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMandForm({ ...mandForm, independent: false })}
+                  className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    !mandForm.independent
+                      ? 'border-red-500 bg-red-50 text-red-700'
+                      : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <XCircle className="h-4 w-4" /> Prompted
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+            <textarea
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[60px]"
+              placeholder="Any additional notes..."
+              value={mandForm.notes}
+              onChange={(e) => setMandForm({ ...mandForm, notes: e.target.value })}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setShowMandModal(false)}>Cancel</Button>
+            <Button onClick={() => addMandMutation.mutate(mandForm)} disabled={addMandMutation.isPending || !mandForm.itemRequested.trim()}>
+              {addMandMutation.isPending ? 'Saving...' : 'Save Mand'}
             </Button>
           </div>
         </div>

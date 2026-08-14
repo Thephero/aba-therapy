@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/check-env.js && next build",
+    "env:check": "node scripts/check-env.js --strict",
+    "test:env-guard": "node scripts/test-env-guard.js",
     "start": "next start",
     "lint": "eslint"
   },

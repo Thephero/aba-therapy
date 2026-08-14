@@ -69,6 +69,7 @@ model User {
   supervisedSessions Session[]         @relation("SessionSupervisor")
   auditLogs        AuditLog[]
   coSignedNotes    SOAPNote[]          @relation("CoSigner")
+  parentOf         Student[]           @relation("StudentParent")
 }
 
 model Student {
@@ -90,6 +91,9 @@ model Student {
   programs       Program[]
   sessions       Session[]
   consentRecords ConsentRecord[]
+  behaviorPlans  BehaviorPlan[]
+  parentId       String?
+  parent         User?   @relation("StudentParent", fields: [parentId], references: [id])
 }
 
 model StudentSupervisor {
@@ -157,6 +161,7 @@ model Session {
   programs             SessionProgram[]
   trials               Trial[]
   behaviorRecords      BehaviorRecord[]
+  mandRecords          MandRecord[]
   preferenceAssessments PreferenceAssessment[]
   reinforcerChecks     ReinforcerCheck[]
   alerts               Alert[]
@@ -210,20 +215,52 @@ model Trial {
   @@index([targetId])
 }
 
+model BehaviorPlan {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  name        String
+  dataType    String   @default("FREQUENCY")  // FREQUENCY | DURATION
+  abcOptions  String   @default("[]")  // JSON: { antecedents: string[], behaviors: string[], consequences: string[] }
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  records BehaviorRecord[]
+
+  @@index([studentId])
+}
+
 model BehaviorRecord {
-  id            String   @id @default(uuid())
-  sessionId     String
-  session       Session  @relation(fields: [sessionId], references: [id])
-  behaviorType  String    // FREQUENCY | DURATION
-  behaviorName  String
-  antecedent    String?
-  behavior      String?
-  consequence   String?
-  frequency     Int?
-  durationSec   Int?
-  intensity     String?
-  timestamp     DateTime @default(now())
-  notes         String?
+  id             String   @id @default(uuid())
+  sessionId      String
+  session        Session  @relation(fields: [sessionId], references: [id])
+  behaviorPlanId String?
+  behaviorPlan   BehaviorPlan? @relation(fields: [behaviorPlanId], references: [id])
+  behaviorType   String    // FREQUENCY | DURATION
+  behaviorName   String
+  antecedent     String?
+  behavior       String?
+  consequence    String?
+  frequency      Int?
+  durationSec    Int?
+  intensity      String?
+  timestamp      DateTime @default(now())
+  notes          String?
+
+  @@index([sessionId])
+}
+
+model MandRecord {
+  id              String   @id @default(uuid())
+  sessionId       String
+  session         Session  @relation(fields: [sessionId], references: [id])
+  mandType        String   @default("SPONTANEOUS")  // SPONTANEOUS | PROMPTED | ECHOIC
+  itemRequested   String?
+  promptLevelUsed String?
+  independent     Boolean  @default(false)
+  notes           String?
+  timestamp       DateTime @default(now())
 
   @@index([sessionId])
 }

@@ -67,7 +67,7 @@ git push -u origin main
    - `NEXT_PUBLIC_API_URL` → `https://aba-backend.onrender.com` (your Render URL, no trailing slash)
 5. Click **Deploy**. In ~1 minute you get a URL like: `https://aba-web.vercel.app`
 
-> ⚠️ This env var is the #1 thing people forget — without it the site calls `localhost:3001` and breaks.
+> ⚠️ This env var is the #1 thing people forget — without it the site calls `localhost:3001` and breaks. Since Aug 2, `npm run build` runs `aba-web/scripts/check-env.js` first and **refuses to build** in production (Vercel/CI) if the var is missing, malformed, `localhost`, or plain `http://` — so a misconfigured build can no longer ship silently.
 
 ---
 
@@ -96,3 +96,7 @@ git push -u origin main
 ## Re-deploying after code changes
 
 Push to GitHub → Render and Vercel auto-deploy. The seed script is idempotent, so demo data is never duplicated.
+
+> ⚠️ **Guard notes:**
+> - **Backend:** prod DB scripts (`db:push:prod`, `db:generate:prod`, `db:seed:prod`) run `node scripts/check-prod-db.js` first — they **refuse to run** unless `DATABASE_URL` starts with `postgresql://`. On Render the Neon URL is injected automatically, so deploys are unaffected. If you ever run a prod script locally and it's blocked, restore the local SQLite client with `npm run db:restore:local`.
+> - **Frontend:** `npm run build` runs `aba-web/scripts/check-env.js` first — on Vercel (VERCEL=1/CI) it **blocks the build** unless `NEXT_PUBLIC_API_URL` is a valid non-localhost `https://` URL. Your Vercel env var already points at the correct Render URL, so deploys pass. To check locally: `cd aba-web && npm run env:check`. Regression tests: `npm run test:env-guard`.

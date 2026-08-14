@@ -21,17 +21,61 @@ const statusColors: Record<string, 'warning' | 'success' | 'default' | 'danger'>
   CANCELLED: 'danger',
 };
 
+const SESSION_MODALITIES = [
+  { value: 'DTT', label: 'DTT (Discrete Trial Training)' },
+  { value: 'NET', label: 'NET (Natural Environment Teaching)' },
+  { value: 'GROUP', label: 'Group Skills' },
+];
+
+// Multi-select modality picker shared by Start/Schedule modals.
+// ABA sessions routinely include several modalities at once (e.g. DTT + NET),
+// so this replaces the old forced single-choice dropdown.
+function ModalityPicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  return (
+    <div className="space-y-2">
+      {SESSION_MODALITIES.map((m) => {
+        const checked = value.includes(m.value);
+        return (
+          <label
+            key={m.value}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors ${
+              checked
+                ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  onChange([...value, m.value]);
+                } else {
+                  onChange(value.filter((v) => v !== m.value));
+                }
+              }}
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600"
+            />
+            <span>{m.label}</span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function SessionsPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const isAdminOrSupervisor = user?.role === 'center_admin' || user?.role === 'supervisor';
+  const canStartSession = user?.role === 'center_admin' || user?.role === 'supervisor' || user?.role === 'therapist';
   const [search, setSearch] = useState('');
   const [showStartModal, setShowStartModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [sessionForm, setSessionForm] = useState({ studentId: '', sessionType: 'DTT', location: '' });
+  const [sessionForm, setSessionForm] = useState({ studentId: '', sessionType: ['DTT'] as string[], location: '' });
   const [scheduleForm, setScheduleForm] = useState({
     studentId: '', therapistId: '', supervisorId: '',
-    sessionType: 'DTT', scheduledFor: '', programIds: [] as string[], location: '',
+    sessionType: ['DTT'] as string[], scheduledFor: '', programIds: [] as string[], location: '',
   });
   const queryClient = useQueryClient();
 
@@ -85,7 +129,7 @@ export default function SessionsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       setShowStartModal(false);
-      setSessionForm({ studentId: '', sessionType: 'DTT', location: '' });
+      setSessionForm({ studentId: '', sessionType: ['DTT'], location: '' });
       showToast('Session started', 'success');
     },
     onError: (err: any) => {
@@ -100,7 +144,7 @@ export default function SessionsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       setShowScheduleModal(false);
-      setScheduleForm({ studentId: '', therapistId: '', supervisorId: '', sessionType: 'DTT', scheduledFor: '', programIds: [], location: '' });
+      setScheduleForm({ studentId: '', therapistId: '', supervisorId: '', sessionType: ['DTT'], scheduledFor: '', programIds: [], location: '' });
       showToast('Session scheduled', 'success');
     },
     onError: (err: any) => {
@@ -144,10 +188,12 @@ export default function SessionsPage() {
               Schedule
             </Button>
           )}
-          <Button onClick={() => setShowStartModal(true)}>
-            <Play className="h-4 w-4" />
-            Start Session
-          </Button>
+          {canStartSession && (
+            <Button onClick={() => setShowStartModal(true)}>
+              <Play className="h-4 w-4" />
+              Start Session
+            </Button>
+          )}
         </div>
       </div>
 
@@ -295,17 +341,12 @@ export default function SessionsPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Session Type</label>
-            <select
+            <label className="block text-sm font-medium text-gray-700 mb-1">Session Modalities</label>
+            <p className="mb-2 text-xs text-gray-400">Select all that will be worked on — most sessions include several.</p>
+            <ModalityPicker
               value={sessionForm.sessionType}
-              onChange={(e) => setSessionForm({ ...sessionForm, sessionType: e.target.value })}
-              className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-colors"
-            >
-              <option value="DTT">DTT (Discrete Trial Training)</option>
-              <option value="NET">NET (Natural Environment Teaching)</option>
-              <option value="INC">Incidental Teaching</option>
-              <option value="GROUP">Group Session</option>
-            </select>
+              onChange={(v) => setSessionForm({ ...sessionForm, sessionType: v })}
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
@@ -383,17 +424,11 @@ export default function SessionsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Session Type</label>
-              <select
+              <label className="block text-sm font-medium text-gray-700 mb-1">Session Modalities</label>
+              <ModalityPicker
                 value={scheduleForm.sessionType}
-                onChange={(e) => setScheduleForm({ ...scheduleForm, sessionType: e.target.value })}
-                className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-colors"
-              >
-                <option value="DTT">DTT (Discrete Trial Training)</option>
-                <option value="NET">NET (Natural Environment Teaching)</option>
-                <option value="INC">Incidental Teaching</option>
-                <option value="GROUP">Group Session</option>
-              </select>
+                onChange={(v) => setScheduleForm({ ...scheduleForm, sessionType: v })}
+              />
             </div>
           </div>
 

@@ -9,6 +9,7 @@ import * as userController from '../controllers/userController';
 import * as studentController from '../controllers/studentController';
 import * as programController from '../controllers/programController';
 import * as sessionController from '../controllers/sessionController';
+import * as behaviorPlanController from '../controllers/behaviorPlanController';
 
 import sessionRulesRoutes from './sessionRules';
 
@@ -59,8 +60,14 @@ router.post('/programs', authenticate, authorize('CENTER_ADMIN', 'SUPERVISOR'), 
 router.patch('/programs/:id', authenticate, authorize('CENTER_ADMIN', 'SUPERVISOR'), programController.updateProgram);
 
 // Targets
-router.post('/programs/:programId/targets', authenticate, authorize('SUPERVISOR'), programController.addTarget);
-router.patch('/programs/:programId/targets/:targetId', authenticate, authorize('SUPERVISOR'), programController.updateTarget);
+router.post('/programs/:programId/targets', authenticate, authorize('CENTER_ADMIN', 'SUPERVISOR'), programController.addTarget);
+router.patch('/programs/:programId/targets/:targetId', authenticate, authorize('CENTER_ADMIN', 'SUPERVISOR'), programController.updateTarget);
+
+// ─── Behavior Plans ────────────────────────────────────────────────────────
+router.get('/students/:studentId/behavior-plans', authenticate, behaviorPlanController.listBehaviorPlans);
+router.post('/students/:studentId/behavior-plans', authenticate, authorize('CENTER_ADMIN', 'SUPERVISOR'), behaviorPlanController.createBehaviorPlan);
+router.patch('/behavior-plans/:planId', authenticate, authorize('CENTER_ADMIN', 'SUPERVISOR'), behaviorPlanController.updateBehaviorPlan);
+router.delete('/behavior-plans/:planId', authenticate, authorize('CENTER_ADMIN', 'SUPERVISOR'), behaviorPlanController.deleteBehaviorPlan);
 
 // ─── Dashboard Summary ─────────────────────────────────────────────────────
 router.get('/dashboard/summary', authenticate, sessionController.getDashboardSummary);
@@ -77,6 +84,7 @@ router.patch('/sessions/:id/end', authenticate, sessionController.endSession);
 // Session Data
 router.post('/sessions/:id/trials', authenticate, sessionController.addTrial);
 router.post('/sessions/:id/behaviors', authenticate, sessionController.addBehaviorRecord);
+router.post('/sessions/:id/mands', authenticate, sessionController.addMandRecord);
 router.post('/sessions/:id/preferences', authenticate, sessionController.addPreferenceAssessment);
 router.post('/sessions/:id/reinforcers', authenticate, sessionController.addReinforcerCheck);
 

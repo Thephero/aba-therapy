@@ -9,9 +9,20 @@ export async function listUsers(req: Request, res: Response, next: NextFunction)
   try {
     const centerId = req.user?.centerId;
     const role = req.query.role as string;
+    const search = req.query.search as string;
 
     const where: any = { centerId };
     if (role) where.role = role;
+
+    // Text search across name, email, and role
+    // (SQLite LIKE is case-insensitive for ASCII, so plain `contains` works).
+    if (search) {
+      where.OR = [
+        { name: { contains: search } },
+        { email: { contains: search } },
+        { role: { contains: search } },
+      ];
+    }
 
     const users = await prisma.user.findMany({
       where,

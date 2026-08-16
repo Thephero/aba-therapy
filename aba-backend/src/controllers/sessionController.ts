@@ -161,7 +161,7 @@ export async function endSession(req: Request, res: Response, next: NextFunction
 
 export async function listSessions(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { studentId, therapistId, status, type, centerId: queryCenterId } = req.query as Record<string, string>;
+    const { studentId, therapistId, status, type, centerId: queryCenterId, search } = req.query as Record<string, string>;
     const scope = await getSessionScope(req.user!);
     const where: any = { ...scope };
 
@@ -169,6 +169,22 @@ export async function listSessions(req: Request, res: Response, next: NextFuncti
     if (therapistId) where.therapistId = therapistId;
     if (status) where.status = status;
     if (type === 'upcoming') where.status = 'SCHEDULED';
+
+    // Text search across student/therapist/supervisor names, location, and status
+    // (SQLite LIKE is case-insensitive for ASCII, so plain `contains` works).
+    if (search) {
+      where.AND = [
+        {
+          OR: [
+            { student: { name: { contains: search } } },
+            { therapist: { name: { contains: search } } },
+            { supervisor: { name: { contains: search } } },
+            { location: { contains: search } },
+            { status: { contains: search } },
+          ],
+        },
+      ];
+    }
 
     const sessions = await prisma.session.findMany({
       where,

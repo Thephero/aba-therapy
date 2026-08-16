@@ -30,7 +30,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem('user');
     const token = localStorage.getItem('accessToken');
     if (stored && token) {
-      setUser(JSON.parse(stored));
+      const parsed = JSON.parse(stored);
+      // Backend stores roles uppercase (e.g. CENTER_ADMIN) — normalize to
+      // the lowercase shape the UI compares against (e.g. center_admin).
+      setUser({ ...parsed, role: typeof parsed.role === 'string' ? parsed.role.toLowerCase() : parsed.role });
     }
     setLoading(false);
   }, []);
@@ -43,7 +46,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: data.user.id,
       email: data.user.email,
       name: data.user.name,
-      role: data.user.role,
+      // Backend returns roles uppercase (e.g. CENTER_ADMIN); the UI compares
+      // against lowercase (e.g. center_admin), so normalize here.
+      role: data.user.role.toLowerCase(),
       centerId: data.user.centerId,
       centerName: data.centerName || '',
     };

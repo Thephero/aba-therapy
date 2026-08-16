@@ -1,4 +1,4 @@
-import { prisma } from '../utils/prisma';
+import { prisma, containsInsensitive } from '../utils/prisma';
 import { getSessionScope, getStudentScope, canAccessSession } from '../utils/access';
 import { Request, Response, NextFunction } from 'express';
 
@@ -171,16 +171,15 @@ export async function listSessions(req: Request, res: Response, next: NextFuncti
     if (type === 'upcoming') where.status = 'SCHEDULED';
 
     // Text search across student/therapist/supervisor names, location, and status
-    // (SQLite LIKE is case-insensitive for ASCII, so plain `contains` works).
     if (search) {
       where.AND = [
         {
           OR: [
-            { student: { name: { contains: search } } },
-            { therapist: { name: { contains: search } } },
-            { supervisor: { name: { contains: search } } },
-            { location: { contains: search } },
-            { status: { contains: search } },
+            { student: { name: containsInsensitive(search) } },
+            { therapist: { name: containsInsensitive(search) } },
+            { supervisor: { name: containsInsensitive(search) } },
+            { location: containsInsensitive(search) },
+            { status: containsInsensitive(search) },
           ],
         },
       ];

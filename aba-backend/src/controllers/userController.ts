@@ -1,4 +1,4 @@
-import { prisma } from '../utils/prisma';
+import { prisma, containsInsensitive } from '../utils/prisma';
 import { hashPassword } from '../utils/password';
 import { Request, Response, NextFunction } from 'express';
 
@@ -15,12 +15,11 @@ export async function listUsers(req: Request, res: Response, next: NextFunction)
     if (role) where.role = role;
 
     // Text search across name, email, and role
-    // (SQLite LIKE is case-insensitive for ASCII, so plain `contains` works).
     if (search) {
       where.OR = [
-        { name: { contains: search } },
-        { email: { contains: search } },
-        { role: { contains: search } },
+        { name: containsInsensitive(search) },
+        { email: containsInsensitive(search) },
+        { role: containsInsensitive(search) },
       ];
     }
 

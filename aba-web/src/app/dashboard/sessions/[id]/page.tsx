@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import {
   ArrowLeft, Clock, User, Target, Activity, Brain, Stethoscope,
   CheckCircle2, XCircle, AlertTriangle, Plus, Play, Square,
-  BookOpen, Save, FileText, Sparkles, Users, MessageCircle, Timer,
+  BookOpen, Save, FileText, Sparkles, Users, MessageCircle, Timer, Pause,
 } from 'lucide-react';
 import { formatDateTime, formatStatus } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
@@ -198,6 +198,74 @@ export default function SessionDetailPage() {
     stopTimer();
     timerAccumRef.current = 0;
     setBehaviorForm((prev) => ({ ...prev, durationSec: 0 }));
+  };
+
+  // ── Session Timer (elapsed time since session started) ──
+  const [sessionElapsed, setSessionElapsed] = useState(0);
+  const [sessionTimerRunning, setSessionTimerRunning] = useState(false);
+  const sessionTimerStartRef = useRef<number | null>(null);
+  const sessionTimerAccumRef = useRef(0);
+  const sessionTimerTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const pauseSessionTimer = () => {
+    if (sessionTimerTickRef.current) clearInterval(sessionTimerTickRef.current);
+    sessionTimerTickRef.current = null;
+    if (sessionTimerRunning && sessionTimerStartRef.current) {
+      sessionTimerAccumRef.current += Math.floor((Date.now() - sessionTimerStartRef.current) / 1000);
+    }
+    sessionTimerStartRef.current = null;
+    setSessionTimerRunning(false);
+    setSessionElapsed(sessionTimerAccumRef.current);
+  };
+
+  const resumeSessionTimer = () => {
+    sessionTimerStartRef.current = Date.now();
+    setSessionTimerRunning(true);
+  };
+
+  const resetSessionTimer = () => {
+    pauseSessionTimer();
+    sessionTimerAccumRef.current = 0;
+    setSessionElapsed(0);
+  };
+
+  // Auto-start session timer when session is IN_PROGRESS
+  useEffect(() => {
+    if (data?.status === 'IN_PROGRESS' && data?.startedAt && !sessionTimerRunning && sessionTimerAccumRef.current === 0 && sessionTimerStartRef.current === null) {
+      const startedAt = new Date(data.startedAt).getTime();
+      const elapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+      sessionTimerAccumRef.current = elapsed;
+      setSessionElapsed(elapsed);
+      resumeSessionTimer();
+    }
+  }, [data?.status, data?.startedAt]);
+
+  useEffect(() => {
+    if (sessionTimerRunning) {
+      sessionTimerStartRef.current = Date.now();
+      sessionTimerTickRef.current = setInterval(() => {
+        if (sessionTimerStartRef.current) {
+          const elapsed = sessionTimerAccumRef.current + Math.floor((Date.now() - sessionTimerStartRef.current) / 1000);
+          setSessionElapsed(elapsed);
+        }
+      }, 250);
+    }
+    return () => { if (sessionTimerTickRef.current) clearInterval(sessionTimerTickRef.current); };
+  }, [sessionTimerRunning]);
+
+  // Stop session timer when session ends
+  useEffect(() => {
+    if (data?.status === 'COMPLETED' || data?.status === 'CANCELLED') {
+      pauseSessionTimer();
+    }
+  }, [data?.status]);
+
+  const formatElapsed = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return hours > 0 ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
   };
 
   useEffect(() => {
@@ -476,6 +544,43 @@ export default function SessionDetailPage() {
         <ArrowLeft className="h-4 w-4" />
         Back to Sessions
       </Link>
+
+      {/* Session Timer */}
+      {(data.status === 'IN_PROGRESS' || data.status === 'COMPLETED' || data.status === 'CANCELLED') && (
+        <div className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
+            <Timer className="h-6 w-6 text-indigo-600" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Session Timer</p>
+            <p className="text-3xl font-bold text-gray-900 tabular-nums tracking-wider">
+              {formatElapsed(sessionElapsed)}
+            </p>
+          </div>
+          {data.status === 'IN_PROGRESS' && (
+            <div className="flex items-center gap-2">
+              {sessionTimerRunning ? (
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={pauseSessionTimer}>
+                  <Pause className="h-3.5 w-3.5" /> Pause
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={resumeSessionTimer}>
+                  <Play className="h-3.5 w-3.5" /> Resume
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" className="text-gray-400 hover:text-red-500" onClick={resetSessionTimer}>
+                Reset
+              </Button>
+            </div>
+          )}
+          {data.status === 'COMPLETED' && (
+            <Badge variant="success" className="text-xs">Completed</Badge>
+          )}
+          {data.status === 'CANCELLED' && (
+            <Badge variant="danger" className="text-xs">Cancelled</Badge>
+          )}
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">

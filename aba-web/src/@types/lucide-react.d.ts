@@ -24,4 +24,5 @@ declare module 'lucide-react' {
   export const Activity: Icon;
   export const TrendingUp: Icon;
   export const AlertTriangle: Icon;
+  export const Pause: Icon;
 }

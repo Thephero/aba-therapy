@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -77,6 +78,7 @@ export default function SessionsPage() {
     studentId: '', therapistId: '', supervisorId: '',
     sessionType: ['DTT'] as string[], scheduledFor: '', programIds: [] as string[], location: '',
   });
+  const router = useRouter();
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -124,13 +126,15 @@ export default function SessionsPage() {
 
   const startMutation = useMutation({
     mutationFn: async () => {
-      await api.post('/sessions/start', sessionForm);
+      const { data } = await api.post('/sessions/start', sessionForm);
+      return data.session;
     },
-    onSuccess: () => {
+    onSuccess: (session: any) => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       setShowStartModal(false);
       setSessionForm({ studentId: '', sessionType: ['DTT'], location: '' });
       showToast('Session started', 'success');
+      router.push(`/dashboard/sessions/${session.id}`);
     },
     onError: (err: any) => {
       showToast(err?.response?.data?.error || 'Failed to start session', 'error');

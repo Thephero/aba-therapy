@@ -16,12 +16,17 @@ export default function DashboardLayout({
 }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const isParent = user?.role === 'parent';
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
-  }, [user, loading, router]);
+    // Redirect parents to their specific dashboard
+    if (!loading && user && isParent && window.location.pathname === '/dashboard') {
+      router.push('/dashboard/parent');
+    }
+  }, [user, loading, router, isParent]);
 
   if (loading) {
     return (
@@ -60,7 +65,7 @@ export default function DashboardLayout({
           )}
         </div>
 
-        <MiniDashboard />
+        {!isParent && <MiniDashboard />}
         {children}
       </main>
     </div>

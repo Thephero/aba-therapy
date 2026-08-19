@@ -73,6 +73,19 @@ async function main() {
   });
   console.log(`✅ Created therapist: ${therapist.email} / password: therapist123`);
 
+  // Create parent user
+  const parentHash = await hashPassword('parent123');
+  const parent = await prisma.user.create({
+    data: {
+      centerId: center.id,
+      role: 'PARENT',
+      name: 'Sarah Demo',
+      email: 'parent@aba-demo.com',
+      passwordHash: parentHash,
+    },
+  });
+  console.log(`✅ Created parent: ${parent.email} / password: parent123`);
+
   // Create a demo student
   const student = await prisma.student.create({
     data: {
@@ -89,6 +102,13 @@ async function main() {
   await prisma.studentSupervisor.create({
     data: { studentId: student.id, supervisorId: supervisor.id },
   });
+
+  // Link parent to student
+  await prisma.student.update({
+    where: { id: student.id },
+    data: { parentId: parent.id },
+  });
+  console.log(`✅ Linked parent ${parent.name} to student ${student.name}`);
 
   // Create a program with targets
   const program = await prisma.program.create({
@@ -136,6 +156,7 @@ async function main() {
   console.log('  Admin:      admin@aba-demo.com / admin123');
   console.log('  Supervisor: supervisor@aba-demo.com / supervisor123');
   console.log('  Therapist:  therapist@aba-demo.com / therapist123');
+  console.log('  Parent:     parent@aba-demo.com / parent123');
 }
 
 main()

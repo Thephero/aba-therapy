@@ -70,6 +70,7 @@ export default function SessionsPage() {
   const { showToast } = useToast();
   const isAdminOrSupervisor = user?.role === 'center_admin' || user?.role === 'supervisor';
   const canStartSession = user?.role === 'center_admin' || user?.role === 'supervisor' || user?.role === 'therapist';
+  const isParent = user?.role === 'parent';
   const [search, setSearch] = useState('');
   const [showStartModal, setShowStartModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -275,7 +276,7 @@ export default function SessionsPage() {
                       </td>
                       <td className="py-3">
                         <div className="flex items-center gap-1">
-                          {session.status === 'SCHEDULED' && (
+                          {session.status === 'SCHEDULED' && !isParent && (
                             <Button
                               variant="ghost"
                               size="sm"

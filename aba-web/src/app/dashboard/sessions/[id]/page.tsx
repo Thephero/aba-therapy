@@ -47,6 +47,7 @@ export default function SessionDetailPage() {
   const { showToast } = useToast();
   const { user } = useAuth();
   const isSupervisor = user?.role === 'supervisor' || user?.role === 'center_admin';
+  const isParent = user?.role === 'parent';
 
   const { data, isLoading } = useQuery({
     queryKey: ['session', id],
@@ -641,7 +642,7 @@ export default function SessionDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {data.status === 'SCHEDULED' && (
+          {data.status === 'SCHEDULED' && !isParent && (
             <Button
               variant="default"
               onClick={() => {
@@ -660,7 +661,7 @@ export default function SessionDetailPage() {
               Begin Session
             </Button>
           )}
-          {data.status === 'IN_PROGRESS' && (
+          {data.status === 'IN_PROGRESS' && !isParent && (
             <>
               <Button onClick={openSOAPModal} variant="outline" className="gap-2">
                 <FileText className="h-4 w-4" />
@@ -685,7 +686,7 @@ export default function SessionDetailPage() {
       </div>
 
       {/* Recording Action Buttons */}
-      {data.status === 'IN_PROGRESS' && (
+      {data.status === 'IN_PROGRESS' && !isParent && (
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { setTrialForm(prev => ({ ...prev, trialNumber: lastTrialNumber + 1 })); setShowTrialModal(true); }}>
             <Play className="h-3.5 w-3.5" /> Record Trial
@@ -748,7 +749,7 @@ export default function SessionDetailPage() {
                 <Activity className="h-5 w-5 text-gray-400" />
                 Trial Data ({data.trials?.length || 0})
               </span>
-              {data.status === 'IN_PROGRESS' && (
+              {data.status === 'IN_PROGRESS' && !isParent && (
                 <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => { setTrialForm(prev => ({ ...prev, trialNumber: lastTrialNumber + 1 })); setShowTrialModal(true); }}>
                   <Plus className="h-3 w-3" /> Add
                 </Button>
@@ -812,7 +813,7 @@ export default function SessionDetailPage() {
             ) : (
               <div className="py-6 text-center text-sm text-gray-400">
                 No trial data recorded yet
-                {data.status === 'IN_PROGRESS' && (
+                {data.status === 'IN_PROGRESS' && !isParent && (
                   <div className="mt-2">
                     <Button size="sm" variant="outline" className="gap-1" onClick={() => { setTrialForm(prev => ({ ...prev, trialNumber: 1 })); setShowTrialModal(true); }}>
                       <Play className="h-3 w-3" /> Record First Trial
@@ -832,7 +833,7 @@ export default function SessionDetailPage() {
                 <AlertTriangle className="h-5 w-5 text-gray-400" />
                 Behaviors ({data.behaviorRecords?.length || 0})
               </span>
-              {data.status === 'IN_PROGRESS' && (
+              {data.status === 'IN_PROGRESS' && !isParent && (
                 <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={openBehaviorModal}>
                   <Plus className="h-3 w-3" /> Log
                 </Button>
@@ -861,7 +862,7 @@ export default function SessionDetailPage() {
             ) : (
               <div className="py-6 text-center text-sm text-gray-400">
                 No behavior records
-                {data.status === 'IN_PROGRESS' && (
+                {data.status === 'IN_PROGRESS' && !isParent && (
                   <div className="mt-2">
                     <Button size="sm" variant="ghost" className="gap-1 text-xs" onClick={openBehaviorModal}>
                       <Plus className="h-3 w-3" /> Log First Behavior
@@ -881,7 +882,7 @@ export default function SessionDetailPage() {
                 <MessageCircle className="h-5 w-5 text-gray-400" />
                 Mands ({data.mandRecords?.length || 0})
               </span>
-              {data.status === 'IN_PROGRESS' && (
+              {data.status === 'IN_PROGRESS' && !isParent && (
                 <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => setShowMandModal(true)}>
                   <Plus className="h-3 w-3" /> Add
                 </Button>
@@ -911,7 +912,7 @@ export default function SessionDetailPage() {
             ) : (
               <div className="py-6 text-center text-sm text-gray-400">
                 No mands recorded
-                {data.status === 'IN_PROGRESS' && (
+                {data.status === 'IN_PROGRESS' && !isParent && (
                   <div className="mt-2">
                     <Button size="sm" variant="ghost" className="gap-1 text-xs" onClick={() => setShowMandModal(true)}>
                       <Plus className="h-3 w-3" /> Record First Mand
@@ -931,7 +932,7 @@ export default function SessionDetailPage() {
                 <Brain className="h-5 w-5 text-gray-400" />
                 Preference Assessments ({data.preferenceAssessments?.length || 0})
               </span>
-              {data.status === 'IN_PROGRESS' && (
+              {data.status === 'IN_PROGRESS' && !isParent && (
                 <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => setShowPreferenceModal(true)}>
                   <Plus className="h-3 w-3" /> Add
                 </Button>
@@ -970,7 +971,7 @@ export default function SessionDetailPage() {
                 {data.soapNote?.isFinalized && (
                   <Badge variant="success" className="text-xs">Finalized</Badge>
                 )}
-                {canEditSOAP && (
+                {canEditSOAP && !isParent && (
                   <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={openSOAPModal}>
                     <BookOpen className="h-3 w-3" /> {data.soapNote ? 'Edit' : 'Write'}
                   </Button>
@@ -1009,7 +1010,7 @@ export default function SessionDetailPage() {
             ) : (
               <div className="py-6 text-center text-sm text-gray-400">
                 No SOAP notes yet
-                {canEditSOAP && (
+                {canEditSOAP && !isParent && (
                   <div className="mt-2">
                     <Button size="sm" variant="ghost" className="gap-1 text-xs" onClick={openSOAPModal}>
                       <Plus className="h-3 w-3" /> Write SOAP Notes

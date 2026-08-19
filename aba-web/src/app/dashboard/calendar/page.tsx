@@ -36,6 +36,7 @@ const MONTH_NAMES = [
 export default function CalendarPage() {
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
+  const isParent = user?.role === 'parent';
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -140,7 +141,9 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
-          <p className="mt-1 text-sm text-gray-500">View and manage scheduled sessions</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {isParent ? 'View upcoming and past sessions' : 'View and manage scheduled sessions'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/dashboard/sessions">

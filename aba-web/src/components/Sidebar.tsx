@@ -23,12 +23,16 @@ import {
 } from 'lucide-react';
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['center_admin', 'supervisor', 'therapist', 'parent'] },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['center_admin', 'supervisor', 'therapist'] },
+  { href: '/dashboard/parent', label: 'My Dashboard', icon: LayoutDashboard, roles: ['parent'] },
   { href: '/dashboard/users', label: 'Users', icon: Users, roles: ['center_admin'] },
-  { href: '/dashboard/students', label: 'Students', icon: GraduationCap, roles: ['center_admin', 'supervisor', 'therapist', 'parent'] },
+  { href: '/dashboard/students', label: 'Students', icon: GraduationCap, roles: ['center_admin', 'supervisor', 'therapist'] },
+  { href: '/dashboard/parent/student', label: 'My Child', icon: GraduationCap, roles: ['parent'] },
   { href: '/dashboard/programs', label: 'Programs', icon: BookOpen, roles: ['center_admin', 'supervisor', 'therapist'] },
-  { href: '/dashboard/sessions', label: 'Sessions', icon: ClipboardList, roles: ['center_admin', 'supervisor', 'therapist', 'parent'] },
+  { href: '/dashboard/sessions', label: 'Sessions', icon: ClipboardList, roles: ['center_admin', 'supervisor', 'therapist'] },
+  { href: '/dashboard/sessions', label: 'Session History', icon: ClipboardList, roles: ['parent'] },
   { href: '/dashboard/calendar', label: 'Calendar', icon: Calendar, roles: ['center_admin', 'supervisor', 'therapist'] },
+  { href: '/dashboard/parent/calendar', label: 'Calendar', icon: Calendar, roles: ['parent'] },
   { href: '/dashboard/reports', label: 'Reports', icon: BarChart3, roles: ['center_admin', 'supervisor'] },
 ];
 

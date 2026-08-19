@@ -70,6 +70,10 @@ model User {
   auditLogs        AuditLog[]
   coSignedNotes    SOAPNote[]          @relation("CoSigner")
   parentOf         Student[]           @relation("StudentParent")
+  sentMessages     Message[]           @relation("MessageSender")
+  receivedMessages Message[]           @relation("MessageReceiver")
+  attendanceMarks  AttendanceRecord[]  @relation("AttendanceMarker")
+  uploadedDocs     DocumentUpload[]    @relation("DocumentUploader")
 }
 
 model Student {
@@ -94,6 +98,9 @@ model Student {
   behaviorPlans  BehaviorPlan[]
   parentId       String?
   parent         User?   @relation("StudentParent", fields: [parentId], references: [id])
+  messages       Message[]
+  attendanceRecords AttendanceRecord[]
+  documents      DocumentUpload[]
 }
 
 model StudentSupervisor {
@@ -358,6 +365,56 @@ model ConsentRecord {
   notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  @@index([studentId])
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  senderId    String
+  sender      User     @relation("MessageSender", fields: [senderId], references: [id])
+  receiverId  String
+  receiver    User     @relation("MessageReceiver", fields: [receiverId], references: [id])
+  content     String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([studentId])
+  @@index([senderId])
+  @@index([receiverId])
+}
+
+model AttendanceRecord {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  date        DateTime @default(now())
+  status      String   @default("ATTENDING")  // ATTENDING | SICK | ABSENT | LATE | OTHER
+  notes       String?
+  markedById  String
+  markedBy    User     @relation("AttendanceMarker", fields: [markedById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([date])
+}
+
+model DocumentUpload {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  uploadedById String
+  uploadedBy  User     @relation("DocumentUploader", fields: [uploadedById], references: [id])
+  fileName    String
+  fileUrl     String
+  fileType    String   // medical_report | image | other
+  mimeType    String?
+  fileSize    Int?
+  notes       String?
+  createdAt   DateTime @default(now())
 
   @@index([studentId])
 }

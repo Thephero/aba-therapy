@@ -6,12 +6,45 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding database...');
 
-  // Skip if already seeded (keeps repeated deploys safe)
-  const existing = await prisma.user.findUnique({
+  // Check if already seeded — if so, ensure all demo users exist (add any missing ones)
+  const existingAdmin = await prisma.user.findUnique({
     where: { email: 'admin@aba-demo.com' },
   });
-  if (existing) {
-    console.log('✅ Database already seeded — skipping.');
+  if (existingAdmin) {
+    console.log('✅ Database already seeded — checking for missing demo users...');
+    
+    // Ensure parent user exists (added Aug 14)
+    const existingParent = await prisma.user.findUnique({
+      where: { email: 'parent@aba-demo.com' },
+    });
+    if (!existingParent) {
+      // Find the center from the admin
+      const centerId = existingAdmin.centerId;
+      const parentHash = await hashPassword('parent123');
+      const parent = await prisma.user.create({
+        data: {
+          centerId,
+          role: 'PARENT',
+          name: 'Sarah Demo',
+          email: 'parent@aba-demo.com',
+          passwordHash: parentHash,
+        },
+      });
+      console.log(`✅ Created missing parent: ${parent.email} / password: parent123`);
+      
+      // Link to first student in the center if available
+      const firstStudent = await prisma.student.findFirst({ where: { centerId } });
+      if (firstStudent && !firstStudent.parentId) {
+        await prisma.student.update({
+          where: { id: firstStudent.id },
+          data: { parentId: parent.id },
+        });
+        console.log(`✅ Linked parent ${parent.name} to student ${firstStudent.name}`);
+      }
+    } else {
+      console.log('✅ Parent user already exists.');
+    }
+    
     return;
   }
 

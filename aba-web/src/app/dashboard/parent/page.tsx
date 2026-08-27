@@ -203,8 +203,8 @@ export default function ParentDashboard() {
                 <Calendar className="h-5 w-5 text-gray-400" />
                 Upcoming Sessions
               </span>
-              <Link 
-                href="/dashboard/parent/calendar" 
+              <Link
+                href={`/dashboard/parent/calendar?studentId=${student.id}`} 
                 className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
               >
                 View Calendar →
@@ -273,8 +273,8 @@ export default function ParentDashboard() {
                 <Activity className="h-5 w-5 text-gray-400" />
                 Recent Sessions
               </span>
-              <Link 
-                href="/dashboard/sessions" 
+              <Link
+                href={`/dashboard/parent/student?studentId=${student.id}`} 
                 className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
               >
                 View All →

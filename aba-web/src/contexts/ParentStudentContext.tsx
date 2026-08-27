@@ -30,6 +30,7 @@ export function ParentStudentProvider({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
   const requestedId = searchParams.get('studentId');
   const [selectedId, setSelectedId] = useState<string | null>(requestedId);
+  const [selectionReady, setSelectionReady] = useState(false);
 
   const { data: students = [], isLoading } = useQuery({
     queryKey: ['parent-students'],
@@ -40,12 +41,18 @@ export function ParentStudentProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    if (requestedId && students.some((item) => item.id === requestedId)) {
-      setSelectedId(requestedId);
-    } else if (students.length > 0 && !students.some((item) => item.id === selectedId)) {
-      setSelectedId(students[0].id);
+    if (isLoading) return;
+    const validRequestedId = requestedId && students.some((item) => item.id === requestedId) ? requestedId : null;
+    const validSelectedId = selectedId && students.some((item) => item.id === selectedId) ? selectedId : null;
+    const nextId = validRequestedId || validSelectedId || students[0]?.id || null;
+    setSelectedId(nextId);
+    setSelectionReady(true);
+    if (nextId && nextId !== requestedId) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('studentId', nextId);
+      router.replace(`${pathname}?${params.toString()}`);
     }
-  }, [requestedId, selectedId, students]);
+  }, [isLoading, pathname, requestedId, router, searchParams, selectedId, students]);
 
   const selectStudent = (id: string) => {
     if (!students.some((item) => item.id === id)) return;
@@ -57,11 +64,11 @@ export function ParentStudentProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     students,
-    student: students.find((item) => item.id === selectedId) || null,
-    studentId: selectedId,
-    isLoading,
+    student: selectionReady ? students.find((item) => item.id === selectedId) || null : null,
+    studentId: selectionReady ? selectedId : null,
+    isLoading: isLoading || !selectionReady,
     selectStudent,
-  }), [isLoading, selectedId, students]);
+  }), [isLoading, selectedId, selectionReady, students]);
 
   return <ParentStudentContext.Provider value={value}>{children}</ParentStudentContext.Provider>;
 }

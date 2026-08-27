@@ -75,7 +75,7 @@ export default function ParentStudentPage() {
     <div className="space-y-6">
       {/* Back button */}
       <Link
-        href="/dashboard/parent"
+        href={`/dashboard/parent?studentId=${selectedStudent?.id || ''}`}
         className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
@@ -324,7 +324,7 @@ export default function ParentStudentPage() {
               Recent Session History
             </span>
             <Link 
-              href="/dashboard/sessions" 
+              href={`/dashboard/parent/student?studentId=${student.id}`} 
               className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
             >
               View All →

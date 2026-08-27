@@ -5,7 +5,10 @@ import { useParentStudent } from '@/contexts/ParentStudentContext';
 export function ParentStudentSelector() {
   const { students, student, studentId, isLoading, selectStudent } = useParentStudent();
 
-  if (isLoading || students.length === 0) return null;
+  if (isLoading) {
+    return <div className="h-12 animate-pulse rounded-xl border border-indigo-100 bg-indigo-50/60" aria-label="Loading children" />;
+  }
+  if (students.length === 0) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3">

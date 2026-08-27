@@ -146,7 +146,7 @@ export default function ParentCalendarPage() {
     <div className="space-y-6">
       {/* Back to Dashboard */}
       <Link
-        href="/dashboard/parent"
+        href={`/dashboard/parent?studentId=${studentId || ''}`}
         className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />

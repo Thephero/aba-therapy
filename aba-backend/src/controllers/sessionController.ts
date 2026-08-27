@@ -182,6 +182,11 @@ export async function listSessions(req: Request, res: Response, next: NextFuncti
     const scope = await getSessionScope(req.user!);
     const where: any = { ...scope };
 
+    if (req.user?.role === 'PARENT' && !studentId) {
+      res.status(400).json({ error: 'studentId is required for parent session requests' });
+      return;
+    }
+
     if (studentId) {
       if (!req.user || !(await canAccessStudent(req.user, studentId))) {
         res.status(403).json({ error: 'You do not have access to this student' });
@@ -708,6 +713,10 @@ export async function getCalendarSessions(req: Request, res: Response, next: Nex
         { startedAt: { gte: new Date(start), lte: new Date(end) } },
       ],
     };
+    if (req.user?.role === 'PARENT' && !studentId) {
+      res.status(400).json({ error: 'studentId is required for parent calendar requests' });
+      return;
+    }
     if (studentId) {
       if (!req.user || !(await canAccessStudent(req.user, studentId))) {
         res.status(403).json({ error: 'You do not have access to this student' });

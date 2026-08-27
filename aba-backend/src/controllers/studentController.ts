@@ -89,7 +89,12 @@ export async function createStudent(req: Request, res: Response, next: NextFunct
 export async function updateStudent(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const body = req.body as Record<string, any>;
-    const { name, dateOfBirth, guardianName, guardianEmail, guardianPhone, isActive, parentId } = body;
+    const { name, dateOfBirth, guardianName, guardianEmail, guardianPhone, isActive, parentId, profileImageUrl } = body;
+
+    if (profileImageUrl !== undefined && req.user?.role !== 'CENTER_ADMIN' && req.user?.role !== 'SUPERVISOR') {
+      res.status(403).json({ error: 'Only center admins and supervisors can update profile images' });
+      return;
+    }
     const data: any = {};
 
     if (name) data.name = name;
@@ -100,6 +105,23 @@ export async function updateStudent(req: Request, res: Response, next: NextFunct
     if (isActive !== undefined) data.isActive = isActive;
     // Link/unlink a parent account (empty string unlinks).
     if (parentId !== undefined) data.parentId = parentId === '' ? null : parentId;
+    if (profileImageUrl !== undefined) {
+      if (profileImageUrl !== null && typeof profileImageUrl !== 'string') {
+        res.status(400).json({ error: 'Profile image must be a valid image URL' });
+        return;
+      }
+      if (typeof profileImageUrl === 'string' && profileImageUrl.length > 2_000_000) {
+        res.status(400).json({ error: 'Profile image is too large' });
+        return;
+      }
+      data.profileImageUrl = profileImageUrl || null;
+    }
+
+    const studentAccess = await canAccessStudent(req.user!, req.params.id as string);
+    if (!studentAccess) {
+      res.status(403).json({ error: 'You do not have access to this student' });
+      return;
+    }
 
     const student = await prisma.student.update({
       where: { id: req.params.id as string },
@@ -117,6 +139,10 @@ export async function updateStudent(req: Request, res: Response, next: NextFunct
 
 export async function archiveStudent(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    if (!req.user || !(await canAccessStudent(req.user, req.params.id as string))) {
+      res.status(403).json({ error: 'You do not have access to this student' });
+      return;
+    }
     const student = await prisma.student.update({
       where: { id: req.params.id as string },
       data: { isActive: false, archivedAt: new Date() },
@@ -130,6 +156,10 @@ export async function archiveStudent(req: Request, res: Response, next: NextFunc
 
 export async function assignSupervisor(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    if (!req.user || !(await canAccessStudent(req.user, req.params.id as string))) {
+      res.status(403).json({ error: 'You do not have access to this student' });
+      return;
+    }
     const body = req.body as Record<string, any>;
     const { supervisorId } = body;
 
@@ -148,6 +178,10 @@ export async function assignSupervisor(req: Request, res: Response, next: NextFu
 
 export async function removeSupervisor(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    if (!req.user || !(await canAccessStudent(req.user, req.params.id as string))) {
+      res.status(403).json({ error: 'You do not have access to this student' });
+      return;
+    }
     const supervisorId = (req.params as any).supervisorId as string;
 
     await prisma.studentSupervisor.delete({
@@ -169,6 +203,10 @@ export async function removeSupervisor(req: Request, res: Response, next: NextFu
 
 export async function assignTherapist(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    if (!req.user || !(await canAccessStudent(req.user, req.params.id as string))) {
+      res.status(403).json({ error: 'You do not have access to this student' });
+      return;
+    }
     const body = req.body as Record<string, any>;
     const { therapistId } = body;
 
@@ -187,6 +225,10 @@ export async function assignTherapist(req: Request, res: Response, next: NextFun
 
 export async function removeTherapist(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    if (!req.user || !(await canAccessStudent(req.user, req.params.id as string))) {
+      res.status(403).json({ error: 'You do not have access to this student' });
+      return;
+    }
     const therapistId = (req.params as any).therapistId as string;
 
     await prisma.studentTherapist.delete({

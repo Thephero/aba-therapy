@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
+import { useParentStudent } from '@/contexts/ParentStudentContext';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = [
@@ -41,6 +42,7 @@ const statusLabels: Record<string, string> = {
 
 export default function ParentCalendarPage() {
   const { user } = useAuth();
+  const { studentId } = useParentStudent();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -58,12 +60,13 @@ export default function ParentCalendarPage() {
 
   // Fetch sessions for the visible date range
   const { data: sessions, isLoading } = useQuery({
-    queryKey: ['parent-calendar-sessions', startDate.toISOString(), endDate.toISOString()],
+    queryKey: ['parent-calendar-sessions', studentId, startDate.toISOString(), endDate.toISOString()],
     queryFn: async () => {
       const { data } = await api.get('/sessions/calendar', {
         params: {
           start: startDate.toISOString(),
           end: endDate.toISOString(),
+          studentId,
         },
       });
       return data.sessions as any[];

@@ -30,7 +30,7 @@ const navItems = [
   { href: '/dashboard/parent/student', label: 'My Child', icon: GraduationCap, roles: ['parent'] },
   { href: '/dashboard/programs', label: 'Programs', icon: BookOpen, roles: ['center_admin', 'supervisor', 'therapist'] },
   { href: '/dashboard/sessions', label: 'Sessions', icon: ClipboardList, roles: ['center_admin', 'supervisor', 'therapist'] },
-  { href: '/dashboard/sessions', label: 'Session History', icon: ClipboardList, roles: ['parent'] },
+  { href: '/dashboard/parent/student', label: 'Session History', icon: ClipboardList, roles: ['parent'] },
   { href: '/dashboard/calendar', label: 'Calendar', icon: Calendar, roles: ['center_admin', 'supervisor', 'therapist'] },
   { href: '/dashboard/parent/calendar', label: 'Calendar', icon: Calendar, roles: ['parent'] },
   { href: '/dashboard/reports', label: 'Reports', icon: BarChart3, roles: ['center_admin', 'supervisor'] },
@@ -77,8 +77,8 @@ export function Sidebar() {
   // Parents get a simplified stat rail: just their child's sessions + pending notes.
   const statItems = userRole === 'parent'
     ? [
-        { label: 'My Child', value: stats?.totalStudents ?? '—', trend: null, spark: [], href: '/dashboard/students', icon: GraduationCap, color: 'text-blue-600', bg: 'bg-blue-50', sparkColor: '#2563eb', roles: ['parent'] },
-        { label: 'Sessions', value: stats?.activeSessions ?? '—', trend: null, spark: series.map((d) => d.sessions as number), href: '/dashboard/sessions', icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-50', sparkColor: '#059669', roles: ['parent'] },
+        { label: 'My Child', value: stats?.totalStudents ?? '—', trend: null, spark: [], href: '/dashboard/parent/student', icon: GraduationCap, color: 'text-blue-600', bg: 'bg-blue-50', sparkColor: '#2563eb', roles: ['parent'] },
+        { label: 'Sessions', value: stats?.activeSessions ?? '—', trend: null, spark: series.map((d) => d.sessions as number), href: '/dashboard/parent/student', icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-50', sparkColor: '#059669', roles: ['parent'] },
       ]
     : [
         { label: 'Student', value: stats?.totalStudents ?? '—', trend: stats?.trends?.newStudents, spark: series.map((d) => d.newStudents as number), href: '/dashboard/students', icon: GraduationCap, color: 'text-blue-600', bg: 'bg-blue-50', sparkColor: '#2563eb', roles: ['center_admin', 'supervisor', 'therapist'] },

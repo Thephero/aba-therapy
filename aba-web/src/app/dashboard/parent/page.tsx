@@ -12,25 +12,18 @@ import { formatDate, formatTime } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import { PerformanceChart } from '@/components/PerformanceChart';
+import { useParentStudent } from '@/contexts/ParentStudentContext';
 
 export default function ParentDashboard() {
   const { user } = useAuth();
 
-  // Fetch the parent's linked child
-  const { data: student, isLoading: studentLoading } = useQuery({
-    queryKey: ['parent-student'],
-    queryFn: async () => {
-      const { data } = await api.get('/students');
-      // Parent should only see their linked child
-      return data.students?.[0] || null;
-    },
-  });
+  const { student, isLoading: studentLoading } = useParentStudent();
 
   // Fetch recent sessions for the child
   const { data: sessions, isLoading: sessionsLoading } = useQuery({
     queryKey: ['parent-sessions', student?.id],
     queryFn: async () => {
-      const { data } = await api.get('/sessions');
+      const { data } = await api.get('/sessions', { params: { studentId: student!.id } });
       return data.sessions || [];
     },
     enabled: !!student,
@@ -40,7 +33,7 @@ export default function ParentDashboard() {
   const { data: programs } = useQuery({
     queryKey: ['parent-programs', student?.id],
     queryFn: async () => {
-      const { data } = await api.get(`/students/${student.id}`);
+      const { data } = await api.get(`/students/${student!.id}`);
       return data.student?.programs || [];
     },
     enabled: !!student,
@@ -107,9 +100,13 @@ export default function ParentDashboard() {
       <Card>
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-2xl font-bold text-white">
-              {student.name?.charAt(0)}
-            </div>
+            {student.profileImageUrl ? (
+              <img src={student.profileImageUrl} alt={`${student.name} profile`} className="h-16 w-16 rounded-full object-cover" />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-2xl font-bold text-white">
+                {student.name?.charAt(0)}
+              </div>
+            )}
             <div className="flex-1">
               <h2 className="text-xl font-bold text-gray-900">{student.name}</h2>
               <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">

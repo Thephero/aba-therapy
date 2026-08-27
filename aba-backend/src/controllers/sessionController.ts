@@ -1,5 +1,5 @@
 import { prisma, containsInsensitive } from '../utils/prisma';
-import { getSessionScope, getStudentScope, canAccessSession } from '../utils/access';
+import { getSessionScope, getStudentScope, canAccessStudent, canAccessSession } from '../utils/access';
 import { Request, Response, NextFunction } from 'express';
 
 function normalizeSessionType(sessionType: any): string {
@@ -18,6 +18,10 @@ export async function startSession(req: Request, res: Response, next: NextFuncti
     const body = req.body as Record<string, any>;
     const { studentId, sessionType, programIds, location, supervisorId } = body;
     const therapistId = req.user?.userId;
+    if (!req.user || !studentId || !(await canAccessStudent(req.user, studentId))) {
+      res.status(403).json({ error: 'You do not have access to this student' });
+      return;
+    }
 
     const session = await prisma.session.create({
       data: {
@@ -53,6 +57,10 @@ export async function scheduleSession(req: Request, res: Response, next: NextFun
       res.status(400).json({ error: 'Student, therapist, and scheduled date/time are required' });
       return;
     }
+    if (!req.user || !(await canAccessStudent(req.user, studentId))) {
+      res.status(403).json({ error: 'You do not have access to this student' });
+      return;
+    }
 
     const session = await prisma.session.create({
       data: {
@@ -84,6 +92,11 @@ export async function scheduleSession(req: Request, res: Response, next: NextFun
 export async function beginScheduledSession(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const sessionId = req.params.id as string;
+
+    if (!req.user || !(await canAccessSession(req.user, sessionId))) {
+      res.status(403).json({ error: 'You do not have access to this session' });
+      return;
+    }
 
     const existing = await prisma.session.findUnique({
       where: { id: sessionId },
@@ -145,6 +158,10 @@ export async function getSession(req: Request, res: Response, next: NextFunction
 
 export async function endSession(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    if (!req.user || !(await canAccessSession(req.user, req.params.id as string))) {
+      res.status(403).json({ error: 'You do not have access to this session' });
+      return;
+    }
     const session = await prisma.session.update({
       where: { id: req.params.id as string },
       data: {
@@ -165,7 +182,13 @@ export async function listSessions(req: Request, res: Response, next: NextFuncti
     const scope = await getSessionScope(req.user!);
     const where: any = { ...scope };
 
-    if (studentId) where.studentId = studentId;
+    if (studentId) {
+      if (!req.user || !(await canAccessStudent(req.user, studentId))) {
+        res.status(403).json({ error: 'You do not have access to this student' });
+        return;
+      }
+      where.studentId = studentId;
+    }
     if (therapistId) where.therapistId = therapistId;
     if (status) where.status = status;
     if (type === 'upcoming') where.status = 'SCHEDULED';
@@ -207,6 +230,10 @@ export async function listSessions(req: Request, res: Response, next: NextFuncti
 
 export async function addTrial(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    if (!req.user || !(await canAccessSession(req.user, req.params.id as string))) {
+      res.status(403).json({ error: 'You do not have access to this session' });
+      return;
+    }
     const body = req.body as Record<string, any>;
     let { targetId, trialType, trialNumber, response, promptLevelUsed, correct, notes } = body;
 
@@ -242,6 +269,10 @@ export async function addTrial(req: Request, res: Response, next: NextFunction):
 
 export async function addBehaviorRecord(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    if (!req.user || !(await canAccessSession(req.user, req.params.id as string))) {
+      res.status(403).json({ error: 'You do not have access to this session' });
+      return;
+    }
     const body = req.body as Record<string, any>;
     let { behaviorPlanId, behaviorType, behaviorName, antecedent, behavior, consequence, frequency, durationSec, intensity, notes } = body;
 
@@ -300,6 +331,10 @@ export async function addBehaviorRecord(req: Request, res: Response, next: NextF
 
 export async function addMandRecord(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    if (!req.user || !(await canAccessSession(req.user, req.params.id as string))) {
+      res.status(403).json({ error: 'You do not have access to this session' });
+      return;
+    }
     const body = req.body as Record<string, any>;
     const { mandType, itemRequested, promptLevelUsed, independent, notes } = body;
 
@@ -324,6 +359,10 @@ export async function addMandRecord(req: Request, res: Response, next: NextFunct
 
 export async function addPreferenceAssessment(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    if (!req.user || !(await canAccessSession(req.user, req.params.id as string))) {
+      res.status(403).json({ error: 'You do not have access to this session' });
+      return;
+    }
     const body = req.body as Record<string, any>;
     const { method, itemsOffered, selectedItem, rankings, notes } = body;
 
@@ -348,6 +387,10 @@ export async function addPreferenceAssessment(req: Request, res: Response, next:
 
 export async function addReinforcerCheck(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    if (!req.user || !(await canAccessSession(req.user, req.params.id as string))) {
+      res.status(403).json({ error: 'You do not have access to this session' });
+      return;
+    }
     const body = req.body as Record<string, any>;
     const { reinforcerUsed, effectivenessRating, notes } = body;
 
@@ -370,6 +413,10 @@ export async function addReinforcerCheck(req: Request, res: Response, next: Next
 
 export async function saveSOAPNote(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    if (!req.user || !(await canAccessSession(req.user, req.params.id as string))) {
+      res.status(403).json({ error: 'You do not have access to this session' });
+      return;
+    }
     const body = req.body as Record<string, any>;
     const sessionId = req.params.id as string;
     const { subjective, objective, assessment, plan, isFinalized } = body;
@@ -645,7 +692,7 @@ export async function getDashboardSummary(req: Request, res: Response, next: Nex
 
 export async function getCalendarSessions(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { start, end } = req.query as Record<string, string>;
+    const { start, end, studentId } = req.query as Record<string, string>;
     const centerId = req.user?.centerId;
 
     if (!start || !end) {
@@ -661,6 +708,13 @@ export async function getCalendarSessions(req: Request, res: Response, next: Nex
         { startedAt: { gte: new Date(start), lte: new Date(end) } },
       ],
     };
+    if (studentId) {
+      if (!req.user || !(await canAccessStudent(req.user, studentId))) {
+        res.status(403).json({ error: 'You do not have access to this student' });
+        return;
+      }
+      where.studentId = studentId;
+    }
 
     const sessions = await prisma.session.findMany({
       where,
@@ -684,6 +738,10 @@ export async function coSignSOAPNote(req: Request, res: Response, next: NextFunc
   try {
     const sessionId = req.params.id as string;
     const userId = req.user?.userId;
+    if (!req.user || !(await canAccessSession(req.user, sessionId))) {
+      res.status(403).json({ error: 'You do not have access to this session' });
+      return;
+    }
 
     const soapNote = await prisma.sOAPNote.update({
       where: { sessionId },

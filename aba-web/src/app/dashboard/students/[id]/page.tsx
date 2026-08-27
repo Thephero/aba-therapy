@@ -33,6 +33,7 @@ export default function StudentDetailPage() {
   const [editForm, setEditForm] = useState({
     name: '', dateOfBirth: '', guardianName: '', guardianEmail: '', guardianPhone: '',
   });
+  const [imageUploading, setImageUploading] = useState(false);
 
   // ── Parent account ──
   const [showParentModal, setShowParentModal] = useState(false);
@@ -91,6 +92,36 @@ export default function StudentDetailPage() {
       return data.plans;
     },
   });
+
+  async function handleProfileImageChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      showToast('Please choose a JPG, PNG, or WebP image', 'error');
+      return;
+    }
+    if (file.size > 1_500_000) {
+      showToast('Image must be smaller than 1.5 MB', 'error');
+      return;
+    }
+    setImageUploading(true);
+    try {
+      const reader = new FileReader();
+      const imageData = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error('Unable to read image'));
+        reader.readAsDataURL(file);
+      });
+      await api.patch(`/students/${id}`, { profileImageUrl: imageData });
+      await queryClient.invalidateQueries({ queryKey: ['student', id] });
+      showToast('Profile image updated', 'success');
+    } catch (error: any) {
+      showToast(error?.response?.data?.error || 'Failed to update profile image', 'error');
+    } finally {
+      setImageUploading(false);
+    }
+  }
 
   const updateMutation = useMutation({
     mutationFn: async (formData: typeof editForm) => {
@@ -304,8 +335,25 @@ export default function StudentDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-2xl font-bold text-white">
-            {data.name?.charAt(0)}
+          <div className="relative">
+            {data.profileImageUrl ? (
+              <img src={data.profileImageUrl} alt={`${data.name} profile`} className="h-16 w-16 rounded-full object-cover" />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-2xl font-bold text-white">
+                {data.name?.charAt(0)}
+              </div>
+            )}
+            {isAdminOrSupervisor && (
+              <div className="absolute -bottom-1 -right-1 flex items-center gap-1">
+                {data.profileImageUrl && (
+                  <button type="button" onClick={() => api.patch(`/students/${id}`, { profileImageUrl: null }).then(() => queryClient.invalidateQueries({ queryKey: ['student', id] })).then(() => showToast('Profile image removed', 'success')).catch(() => showToast('Failed to remove profile image', 'error'))} className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-red-600 text-xs font-bold text-white shadow-sm hover:bg-red-700" title="Remove profile image">×</button>
+                )}
+                <label className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-indigo-600 text-white shadow-sm hover:bg-indigo-700" title="Update profile image">
+                  <span className="text-xs font-bold">+</span>
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={handleProfileImageChange} disabled={imageUploading} />
+                </label>
+              </div>
+            )}
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{data.name}</h1>

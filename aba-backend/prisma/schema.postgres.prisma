@@ -85,6 +85,7 @@ model Student {
   guardianName  String?
   guardianEmail String?
   guardianPhone String?
+  profileImageUrl String?
   isActive      Boolean   @default(true)
   archivedAt    DateTime?
   createdAt     DateTime  @default(now())

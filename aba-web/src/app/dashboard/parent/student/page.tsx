@@ -12,30 +12,26 @@ import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import { PerformanceChart } from '@/components/PerformanceChart';
+import { useParentStudent } from '@/contexts/ParentStudentContext';
 
 export default function ParentStudentPage() {
   const { user } = useAuth();
 
-  // Fetch the parent's linked child
-  const { data: student, isLoading: studentLoading } = useQuery({
-    queryKey: ['parent-student-detail'],
+  const { student: selectedStudent, isLoading: studentLoading } = useParentStudent();
+  const { data: student } = useQuery({
+    queryKey: ['parent-student-detail', selectedStudent?.id],
     queryFn: async () => {
-      const { data } = await api.get('/students');
-      // Parent should only see their linked child
-      const child = data.students?.[0];
-      if (!child) return null;
-      
-      // Fetch full details
-      const { data: fullData } = await api.get(`/students/${child.id}`);
-      return fullData.student;
+      const { data } = await api.get(`/students/${selectedStudent!.id}`);
+      return data.student;
     },
+    enabled: !!selectedStudent,
   });
 
   // Fetch recent sessions for the child
   const { data: sessions } = useQuery({
     queryKey: ['parent-student-sessions', student?.id],
     queryFn: async () => {
-      const { data } = await api.get('/sessions');
+      const { data } = await api.get('/sessions', { params: { studentId: student!.id } });
       return data.sessions || [];
     },
     enabled: !!student,
@@ -88,9 +84,13 @@ export default function ParentStudentPage() {
 
       {/* Header */}
       <div className="flex items-start gap-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-2xl font-bold text-white">
-          {student.name?.charAt(0)}
-        </div>
+        {student.profileImageUrl ? (
+          <img src={student.profileImageUrl} alt={`${student.name} profile`} className="h-16 w-16 rounded-full object-cover" />
+        ) : (
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-2xl font-bold text-white">
+            {student.name?.charAt(0)}
+          </div>
+        )}
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{student.name}</h1>
           <div className="mt-1 flex items-center gap-3">

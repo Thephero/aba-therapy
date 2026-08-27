@@ -101,7 +101,8 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto p-4 space-y-1">
         {visibleItems.map((item) => {
           const isActive = pathname === item.href ||
-            (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`));
+            (item.href === '/dashboard/parent' && pathname === '/dashboard/parent') ||
+            (item.href !== '/dashboard' && item.href !== '/dashboard/parent' && pathname.startsWith(`${item.href}/`));
           return (
             <Link
               key={item.href}

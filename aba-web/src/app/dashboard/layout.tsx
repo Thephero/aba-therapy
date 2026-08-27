@@ -8,6 +8,8 @@ import { MiniDashboard } from '@/components/MiniDashboard';
 import { useAuth } from '@/contexts/AuthContext';
 import { Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ParentStudentProvider } from '@/contexts/ParentStudentContext';
+import { ParentStudentSelector } from '@/components/ParentStudentSelector';
 
 export default function DashboardLayout({
   children,
@@ -66,7 +68,12 @@ export default function DashboardLayout({
         </div>
 
         {!isParent && <MiniDashboard />}
-        {children}
+        {isParent ? (
+          <ParentStudentProvider>
+            <div className="mb-6"><ParentStudentSelector /></div>
+            {children}
+          </ParentStudentProvider>
+        ) : children}
       </main>
     </div>
   );

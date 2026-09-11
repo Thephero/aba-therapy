@@ -29,4 +29,8 @@ declare module 'lucide-react' {
   export const MessageCircle: LucideIcon;
   export const Play: LucideIcon;
   export const Pause: LucideIcon;
+  export const RotateCcw: LucideIcon;
+  export const Send: LucideIcon;
+  export const Check: LucideIcon;
+  export const Download: LucideIcon;
 }

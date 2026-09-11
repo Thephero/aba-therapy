@@ -47,6 +47,24 @@ The **Students** page lists all students you can access (therapists and parents 
 2. Enter the student's name, date of birth, and guardian contact details.
 3. Click **Add Student**.
 
+### Running a Clinical Assessment (Admin / Supervisor)
+From a student's profile, push **Start Assessment** (or **Assessments → Start New**):
+
+1. **Setup** — choose the assessment type:
+   - **VB-MAPP Grid**: Levels 1–3, scored 0 / 0.5 / 1 per item, 5 items per domain, attempts 1–4 (each attempt gets its own color on the Master Grid).
+   - **ABLLS-R Grid**: Domains A–Y, scored 0–4 per task, 5 tracked tasks per domain.
+2. **Ready to Start** — conduct the assessment with the learner, then **push Start** when you're ready to enter scores.
+3. **Score Entry** — tap a score for every item in each domain. Use **Save Draft** to pause, or **Submit Assessment** to finalize (creating a new attempt replaces an existing draft for the same attempt number).
+
+The results page shows:
+
+- **Evaluation dashboard** — total score, percentage, mastered/deficit item counts, and change vs the previous attempt.
+- **Flags** — lack-of-progress and regression flags when scores don't improve between attempts.
+- **Master Grid** — color-coded blocks per item (half-height fill = half credit). Hover any block for the item's score.
+- **Deficit list** — every item below max score, categorized as DEFICIT (0) or EMERGING (partial).
+- **Suggested Goals** — goals from the universal goal bank ranked by deficit severity. Accept, Modify, or Reject each one.
+- **Report** — an auto-drafted SOAP-style clinical report (copy or download scores as CSV). All outputs are recommendations; BCBA review and sign-off required.
+
 ### Student profile
 Click any student card to open their profile. From here you can:
 

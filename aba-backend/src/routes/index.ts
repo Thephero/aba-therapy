@@ -10,6 +10,7 @@ import * as studentController from '../controllers/studentController';
 import * as programController from '../controllers/programController';
 import * as sessionController from '../controllers/sessionController';
 import * as behaviorPlanController from '../controllers/behaviorPlanController';
+import * as assessmentController from '../controllers/assessmentController';
 
 import sessionRulesRoutes from './sessionRules';
 
@@ -100,6 +101,15 @@ router.post('/users/:id/students', authenticate, authorize('CENTER_ADMIN'), user
 router.get('/supervisors/therapists', authenticate, userController.getMyTherapists);
 router.post('/supervisors/:id/therapists', authenticate, authorize('CENTER_ADMIN'), userController.assignTherapistToSupervisor);
 router.delete('/supervisors/:id/therapists/:therapistId', authenticate, authorize('CENTER_ADMIN'), userController.removeTherapistFromSupervisor);
+
+// ─── Assessment Engine (VB-MAPP grid / ABLLS grid) ──────────────────────────
+router.get('/assessments/grids', authenticate, assessmentController.getGrids);
+router.get('/students/:studentId/assessments', authenticate, assessmentController.listAssessments);
+router.post('/assessments', authenticate, authorize('CENTER_ADMIN', 'SUPERVISOR'), auditLog('CREATE_RECORD', 'AssessmentRecord'), assessmentController.createAssessment);
+router.get('/assessments/:id', authenticate, assessmentController.getAssessment);
+router.patch('/assessments/:id', authenticate, authorize('CENTER_ADMIN', 'SUPERVISOR'), auditLog('UPDATE_RECORD', 'AssessmentRecord'), assessmentController.updateAssessmentScores);
+router.post('/assessments/:id/report', authenticate, assessmentController.getAssessmentReport);
+router.post('/assessments/goals', authenticate, authorize('CENTER_ADMIN', 'SUPERVISOR'), auditLog('CREATE_RECORD', 'StudentGoal'), assessmentController.actOnGoalSuggestion);
 
 // ─── Rule Engine & SOAP Notes (sessionRules) ────────────────────────────────
 router.use(sessionRulesRoutes);

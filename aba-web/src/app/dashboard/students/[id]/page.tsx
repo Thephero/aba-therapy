@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  ArrowLeft, Calendar, Mail, Phone, User, BookOpen, AlertTriangle, Save, Archive, Users, Plus, X, Activity, Timer, Pencil,
+  ArrowLeft, Calendar, Mail, Phone, User, BookOpen, AlertTriangle, Save, Archive, Users, Plus, X, Activity, Timer, Pencil, ClipboardList,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import Link from 'next/link';
@@ -50,6 +50,15 @@ export default function StudentDetailPage() {
 
   // ── Behavior plans ──
   const [showPlanModal, setShowPlanModal] = useState(false);
+
+  // ── Assessments ──
+  const { data: assessments } = useQuery({
+    queryKey: ['assessments', id],
+    queryFn: async () => {
+      const { data } = await api.get(`/students/${id}/assessments`);
+      return data.assessments;
+    },
+  });
   const [editingPlan, setEditingPlan] = useState<any>(null);
   const [planForm, setPlanForm] = useState({
     name: '',
@@ -372,6 +381,10 @@ export default function StudentDetailPage() {
         </div>
         {isAdminOrSupervisor && (
           <div className="flex items-center gap-2">
+            <Button onClick={() => router.push(`/dashboard/students/${id}/assessment`)}>
+              <ClipboardList className="h-4 w-4" />
+              Start Assessment
+            </Button>
             <Button variant="outline" onClick={openEdit}>
               <Save className="h-4 w-4" />
               Edit
@@ -721,6 +734,51 @@ export default function StudentDetailPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Assessments */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-gray-400" />
+              Assessments
+            </span>
+            {isAdminOrSupervisor && (
+              <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={() => router.push(`/dashboard/students/${id}/assessment`)}>
+                <Plus className="h-3 w-3" /> Start New
+              </Button>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {assessments?.length > 0 ? (
+            <div className="space-y-2">
+              {assessments.map((a: any) => (
+                <Link
+                  key={a.id}
+                  href={`/dashboard/students/${id}/assessment/results?assessmentId=${a.id}`}
+                  className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-2.5 text-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50/40"
+                >
+                  <div className="flex items-center gap-3">
+                    <Badge variant={a.status === 'COMPLETED' ? 'success' : 'warning'} className="text-[10px]">
+                      {a.status}
+                    </Badge>
+                    <span className="font-medium text-gray-900">
+                      {a.assessmentType === 'VB_MAPP_GRID' ? 'VB-MAPP Grid' : 'ABLLS Grid'}
+                    </span>
+                    {a.assessmentType === 'VB_MAPP_GRID' && <span className="text-xs text-gray-500">Attempt {a.attemptNumber}</span>}
+                  </div>
+                  <span className="text-xs text-gray-400">{new Date(a.createdAt).toLocaleDateString()}</span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="py-4 text-center text-sm text-gray-400">
+              No assessments yet — push <strong>Start Assessment</strong> when you're ready to score a learner's grid.
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Behavior Plans */}
       <Card>

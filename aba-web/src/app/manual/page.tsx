@@ -84,6 +84,13 @@ const sections = [
           <li>Enter the student&apos;s name, date of birth, and guardian contact details.</li>
           <li>Click <strong>Add Student</strong>.</li>
         </ol>
+        <h3 className="mt-4 font-semibold text-gray-900">Running a Clinical Assessment (Admin / Supervisor)</h3>
+        <p className="mt-2 text-sm text-gray-600">
+          From a student&apos;s profile, push <strong>Start Assessment</strong>. Choose <strong>VB-MAPP Grid</strong> (Levels 1–3, 0/0.5/1 scoring, attempts 1–4) or <strong>ABLLS-R Grid</strong> (Domains A–Y, 0–4 scoring). Conduct the assessment with the learner, then <strong>push Start</strong> when ready and enter a score for each item. Save as draft or submit.
+        </p>
+        <p className="mt-2 text-sm text-gray-600">
+          The results page shows the evaluation dashboard (totals, percentage, mastered/deficit counts), progress flags, a color-coded Master Grid, the deficit list, and suggested goals from the goal bank (Accept / Modify / Reject). A SOAP-style report can be copied or exported to CSV. All outputs are recommendations — BCBA review and sign-off required.
+        </p>
         <h3 className="mt-4 font-semibold text-gray-900">Student profile</h3>
         <p className="mt-2 text-sm text-gray-600">Click any student card to open their profile. From here you can:</p>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-600">

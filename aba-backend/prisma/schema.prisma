@@ -72,6 +72,7 @@ model User {
   parentOf         Student[]           @relation("StudentParent")
   sentMessages     Message[]           @relation("MessageSender")
   receivedMessages Message[]           @relation("MessageReceiver")
+  assessments      AssessmentRecord[]  @relation("AssessmentAssessor")
   attendanceMarks  AttendanceRecord[]  @relation("AttendanceMarker")
   uploadedDocs     DocumentUpload[]    @relation("DocumentUploader")
 }
@@ -102,6 +103,8 @@ model Student {
   messages       Message[]
   attendanceRecords AttendanceRecord[]
   documents      DocumentUpload[]
+  assessmentRecords AssessmentRecord[]
+  assessmentGoals  StudentGoal[]
 }
 
 model StudentSupervisor {
@@ -418,4 +421,62 @@ model DocumentUpload {
   createdAt   DateTime @default(now())
 
   @@index([studentId])
+}
+
+// ─── Clinical Assessment Engine (VB-MAPP grid / ABLLS grid) ──────────────────
+// Score-entry, aggregation, evaluation & goal-suggestion engine.
+// It does not administer assessments or replace clinical judgment.
+
+model AssessmentRecord {
+  id              String   @id @default(uuid())
+  studentId       String
+  student         Student  @relation(fields: [studentId], references: [id])
+  assessorId      String
+  assessor        User     @relation("AssessmentAssessor", fields: [assessorId], references: [id])
+  assessmentType  String   // VB_MAPP_GRID | ABLLS_GRID
+  attemptNumber   Int      // 1-4 (VB-MAPP attempts)
+  status          String   @default("DRAFT")  // DRAFT | COMPLETED
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  scores          AssessmentScore[]
+  goals           StudentGoal[]
+
+  @@index([studentId])
+  @@index([studentId, assessmentType])
+}
+
+model AssessmentScore {
+  id             String  @id @default(uuid())
+  assessmentId   String
+  assessment     AssessmentRecord @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  itemCode       String   // e.g. MAND_L1_1 or ABLLS_A_1
+  domainCode     String   // e.g. MAND, TACT, ABLLS_A
+  level          Int      // VB-MAPP level 1-3; 0 for ABLLS
+  score          Float    // VB-MAPP: 0 | 0.5 | 1 ; ABLLS: 0-4
+  notes          String?
+
+  @@unique([assessmentId, itemCode])
+  @@index([assessmentId])
+}
+
+model StudentGoal {
+  id             String   @id @default(uuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id])
+  assessmentId   String?
+  assessment     AssessmentRecord? @relation(fields: [assessmentId], references: [id])
+  targetId       String   // Goal-bank target id, e.g. SKILL_001, BEH_001
+  title          String
+  category       String
+  operationalDefinition String
+  measurementType String
+  masteryCriteria String
+  status         String   @default("SUGGESTED")  // SUGGESTED | ACCEPTED | REJECTED | ACTIVE | MASTERED | REVISION | REGRESSION
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([assessmentId])
 }

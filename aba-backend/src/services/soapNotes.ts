@@ -14,7 +14,7 @@ export async function generateSOAPNote(sessionId: string): Promise<SOAPNoteConte
   const session = await prisma.session.findUnique({
     where: { id: sessionId },
     include: {
-      student: true,
+      student: { select: { id: true, name: true } },
       therapist: true,
       trials: {
         include: {

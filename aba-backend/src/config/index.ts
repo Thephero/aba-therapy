@@ -17,7 +17,12 @@ export const config = {
   },
 
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    // Accept a comma-separated list and normalize trailing slashes so browser
+    // origins match reliably (e.g. Vercel URL copied with a trailing slash).
+    origins: (process.env.CORS_ORIGIN || 'http://localhost:3000')
+      .split(',')
+      .map((origin) => origin.trim().replace(/\/$/, ''))
+      .filter(Boolean),
   },
 
   encryption: {

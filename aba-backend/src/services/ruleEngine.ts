@@ -73,13 +73,6 @@ export async function evaluateRules(sessionId: string): Promise<RuleCheckResult[
     include: {
       trials: true,
       behaviorRecords: true,
-      student: {
-        include: {
-          programs: {
-            include: { targets: true },
-          },
-        },
-      },
     },
   });
 

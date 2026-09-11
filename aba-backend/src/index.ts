@@ -10,7 +10,18 @@ const app = express();
 
 // ─── Middleware ──────────────────────────────────────────────────────────────
 app.use(helmet());
-app.use(cors({ origin: config.cors.origin, credentials: true }));
+app.use(cors({
+  origin: (origin, callback) => {
+    // Non-browser requests (health checks, server-to-server calls) have no
+    // Origin header and should remain allowed.
+    if (!origin || config.cors.origins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(null, false);
+  },
+  credentials: true,
+}));
 app.use(morgan(config.isDev ? 'dev' : 'combined'));
 app.use(express.json({ limit: '10mb' }));
 

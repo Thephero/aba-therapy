@@ -18,13 +18,11 @@ export default function ReportsPage() {
   const { data: stats } = useQuery({
     queryKey: ['reports', period],
     queryFn: async () => {
-      const [students, sessions, summary] = await Promise.all([
-        api.get('/students').catch(() => ({ data: { students: [] } })),
+      const [sessions, summary] = await Promise.all([
         api.get('/sessions').catch(() => ({ data: { sessions: [] } })),
-        api.get(`/dashboard/summary?period=${period}`).catch(() => ({ data: { summary: { trends: {}, series: [] } } })),
+        api.get(`/dashboard/summary?period=${period}`),
       ]);
       const allSessions = sessions.data.sessions || [];
-      const allStudents = students.data.students || [];
 
       const sessionsByStudent: Record<string, number> = {};
       allSessions.forEach((s: any) => {
@@ -34,7 +32,7 @@ export default function ReportsPage() {
 
       return {
         totalSessions: allSessions.length,
-        totalStudents: allStudents.length,
+        totalStudents: summary.data.summary?.totalStudents ?? 0,
         completedSessions: allSessions.filter((s: any) => s.status === 'COMPLETED').length,
         inProgressSessions: allSessions.filter((s: any) => s.status === 'IN_PROGRESS').length,
         cancelledSessions: allSessions.filter((s: any) => s.status === 'CANCELLED').length,

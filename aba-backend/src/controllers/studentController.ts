@@ -1,24 +1,50 @@
-import { prisma } from '../utils/prisma';
+import { prisma, containsInsensitive } from '../utils/prisma';
 import { getStudentScope, canAccessStudent } from '../utils/access';
 import { Request, Response, NextFunction } from 'express';
+
+// Keep core student responses compatible while older production databases finish
+// applying optional newer columns such as profileImageUrl.
+const studentScalarSelect = {
+  id: true,
+  centerId: true,
+  name: true,
+  dateOfBirth: true,
+  guardianName: true,
+  guardianEmail: true,
+  guardianPhone: true,
+  isActive: true,
+  archivedAt: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
 
 export async function listStudents(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const includeArchived = req.query.includeArchived as string;
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
 
     const where: any = { ...(await getStudentScope(req.user!)) };
     if (includeArchived !== 'true') where.isActive = true;
+    if (search) {
+      where.OR = [
+        { name: containsInsensitive(search) },
+        { guardianName: containsInsensitive(search) },
+        { guardianEmail: containsInsensitive(search) },
+        { guardianPhone: containsInsensitive(search) },
+      ];
+    }
 
     const students = await prisma.student.findMany({
       where,
-      include: {
+      select: {
+        ...studentScalarSelect,
         _count: { select: { programs: true, sessions: true } },
         parent: { select: { id: true, name: true, email: true } },
         supervisors: {
-          include: { supervisor: { select: { id: true, name: true, email: true } } },
+          select: { supervisor: { select: { id: true, name: true, email: true } } },
         },
         therapists: {
-          include: { therapist: { select: { id: true, name: true, email: true } } },
+          select: { therapist: { select: { id: true, name: true, email: true } } },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -39,13 +65,14 @@ export async function getStudent(req: Request, res: Response, next: NextFunction
 
     const student = await prisma.student.findUnique({
       where: { id: req.params.id as string },
-      include: {
+      select: {
+        ...studentScalarSelect,
         parent: { select: { id: true, name: true, email: true } },
         supervisors: {
-          include: { supervisor: { select: { id: true, name: true, email: true } } },
+          select: { supervisor: { select: { id: true, name: true, email: true } } },
         },
         therapists: {
-          include: { therapist: { select: { id: true, name: true, email: true } } },
+          select: { therapist: { select: { id: true, name: true, email: true } } },
         },
         programs: { include: { targets: true } },
         consentRecords: true,
@@ -69,6 +96,11 @@ export async function createStudent(req: Request, res: Response, next: NextFunct
     const centerId = req.user?.centerId;
     const { name, dateOfBirth, guardianName, guardianEmail, guardianPhone } = body;
 
+    if (!req.user?.centerId) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
     const student = await prisma.student.create({
       data: {
         centerId: centerId!,
@@ -78,6 +110,7 @@ export async function createStudent(req: Request, res: Response, next: NextFunct
         guardianEmail,
         guardianPhone,
       },
+      select: studentScalarSelect,
     });
 
     res.status(201).json({ student });
@@ -126,7 +159,8 @@ export async function updateStudent(req: Request, res: Response, next: NextFunct
     const student = await prisma.student.update({
       where: { id: req.params.id as string },
       data,
-      include: {
+      select: {
+        ...studentScalarSelect,
         parent: { select: { id: true, name: true, email: true } },
       },
     });
@@ -146,6 +180,7 @@ export async function archiveStudent(req: Request, res: Response, next: NextFunc
     const student = await prisma.student.update({
       where: { id: req.params.id as string },
       data: { isActive: false, archivedAt: new Date() },
+      select: studentScalarSelect,
     });
 
     res.json({ student });

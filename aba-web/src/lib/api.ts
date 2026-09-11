@@ -1,9 +1,10 @@
 import axios from 'axios';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
 
 export const api = axios.create({
   baseURL: `${API_BASE}/api/v1`,
+  timeout: 90_000,
   headers: { 'Content-Type': 'application/json' },
 });
 

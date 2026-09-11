@@ -11,10 +11,12 @@ import { Modal } from '@/components/ui/modal';
 import { Search, Plus, Calendar, User, ArrowLeft } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/toast';
 import Link from 'next/link';
 
 export default function StudentsPage() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const canEdit = user?.role === 'center_admin' || user?.role === 'supervisor';
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -23,7 +25,7 @@ export default function StudentsPage() {
   });
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['students', search],
     queryFn: async () => {
       const { data } = await api.get('/students', { params: { search: search || undefined } });
@@ -42,8 +44,14 @@ export default function StudentsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
       setShowAddModal(false);
       setForm({ name: '', dateOfBirth: '', guardianName: '', guardianEmail: '', guardianPhone: '' });
+      showToast('Student added successfully', 'success');
+    },
+    onError: (err: any) => {
+      showToast(err?.response?.data?.error || 'Failed to add student. Please try again.', 'error');
     },
   });
 
@@ -85,6 +93,10 @@ export default function StudentsPage() {
         {isLoading ? (
           <div className="col-span-full flex justify-center py-12">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+          </div>
+        ) : isError ? (
+          <div className="col-span-full rounded-lg border border-red-200 bg-red-50 py-8 text-center text-sm text-red-700">
+            Unable to load students. {error instanceof Error ? error.message : 'Please refresh and try again.'}
           </div>
         ) : data?.length === 0 ? (
           <div className="col-span-full py-12 text-center text-gray-500">
@@ -210,6 +222,11 @@ export default function StudentsPage() {
             />
           </div>
           <div className="flex justify-end gap-3 pt-2">
+            {addMutation.isError && (
+              <p className="mr-auto self-center text-sm text-red-600">
+                {(addMutation.error as any)?.response?.data?.error || 'Unable to add student. Check the API connection and try again.'}
+              </p>
+            )}
             <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>
               Cancel
             </Button>

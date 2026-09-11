@@ -38,7 +38,7 @@ export async function startSession(req: Request, res: Response, next: NextFuncti
       },
       include: {
         programs: { include: { program: { include: { targets: true } } } },
-        student: true,
+        student: { select: { id: true, name: true } },
       },
     });
 
@@ -77,7 +77,7 @@ export async function scheduleSession(req: Request, res: Response, next: NextFun
       },
       include: {
         programs: { include: { program: { include: { targets: true } } } },
-        student: true,
+        student: { select: { id: true, name: true } },
         therapist: { select: { id: true, name: true, email: true } },
         supervisor: { select: { id: true, name: true } },
       },
@@ -132,7 +132,7 @@ export async function getSession(req: Request, res: Response, next: NextFunction
     const session = await prisma.session.findUnique({
       where: { id: req.params.id as string },
       include: {
-        student: true,
+        student: { select: { id: true, name: true } },
         therapist: { select: { id: true, name: true, email: true } },
         programs: { include: { program: { include: { targets: true } } } },
         trials: { orderBy: { trialNumber: 'asc' } },

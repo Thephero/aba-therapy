@@ -29,7 +29,7 @@ export async function getProgram(req: Request, res: Response, next: NextFunction
   try {
     const program = await prisma.program.findFirst({
       where: { id: req.params.id as string, student: await getStudentScope(req.user!) },
-      include: { targets: { orderBy: { createdAt: 'asc' } }, student: true },
+      include: { targets: { orderBy: { createdAt: 'asc' } }, student: { select: { id: true, name: true } } },
     });
 
     if (!program) {

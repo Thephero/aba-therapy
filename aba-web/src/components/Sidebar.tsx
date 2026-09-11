@@ -47,14 +47,13 @@ export function Sidebar() {
   const { data: stats } = useQuery({
     queryKey: ['dashboard-stats', trendPeriod],
     queryFn: async () => {
-      const [students, users, sessions, summary] = await Promise.all([
-        api.get('/students').catch(() => ({ data: { students: [] } })),
+      const [users, sessions, summary] = await Promise.all([
         api.get('/users').catch(() => ({ data: { users: [] } })),
         api.get('/sessions').catch(() => ({ data: { sessions: [] } })),
-        api.get(`/dashboard/summary?period=${trendPeriod}`).catch(() => ({ data: { summary: { trends: {}, series: [] } } })),
+        api.get(`/dashboard/summary?period=${trendPeriod}`),
       ]);
       return {
-        totalStudents: students.data.students?.length || 0,
+        totalStudents: summary.data.summary?.totalStudents ?? 0,
         totalStaff: users.data.users?.length || 0,
         activeSessions: sessions.data.sessions?.filter((s: any) => s.status === 'IN_PROGRESS').length || 0,
         completedToday: sessions.data.sessions?.filter((s: any) => s.status === 'COMPLETED').length || 0,

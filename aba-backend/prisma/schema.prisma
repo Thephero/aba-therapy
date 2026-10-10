@@ -83,6 +83,9 @@ model User {
 
 model Student {
   id            String    @id @default(uuid())
+  // Short stable human-readable code (e.g. AZM-0001), unique per center.
+  // Used as the identifier for the future LLM knowledge base.
+  code          String?
   centerId      String
   center        Center    @relation(fields: [centerId], references: [id])
   name          String
@@ -97,6 +100,8 @@ model Student {
   updatedAt     DateTime  @updatedAt
 
   supervisors    StudentSupervisor[]
+
+  @@unique([centerId, code])
   therapists     StudentTherapist[]
   programs       Program[]
   sessions       Session[]

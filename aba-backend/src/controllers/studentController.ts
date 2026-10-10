@@ -1,11 +1,13 @@
 import { prisma, containsInsensitive } from '../utils/prisma';
 import { getStudentScope, canAccessStudent } from '../utils/access';
 import { Request, Response, NextFunction } from 'express';
+import type { Prisma } from '@prisma/client';
 
 // Keep core student responses compatible while older production databases finish
 // applying optional newer columns such as profileImageUrl.
 const studentScalarSelect = {
   id: true,
+  code: true,
   centerId: true,
   name: true,
   dateOfBirth: true,
@@ -17,6 +19,29 @@ const studentScalarSelect = {
   createdAt: true,
   updatedAt: true,
 } as const;
+
+// Student codes are short, stable, human-readable IDs (e.g. AZM-0001),
+// unique per center. They anchor every related record for the upcoming
+// LLM knowledge base, so they must never change once assigned.
+async function generateStudentCode(tx: Prisma.TransactionClient, centerId: string): Promise<string> {
+  // Count is kept > highest seen number to be safe with deleted/renumbered codes.
+  const existing = await tx.student.findMany({
+    where: { centerId, code: { not: null } },
+    select: { code: true },
+    orderBy: { code: 'desc' },
+    take: 1,
+  });
+  const last = existing[0]?.code;
+  const lastNum = last ? parseInt(last.split('-').pop() || '0', 10) : 0;
+  let n = lastNum + 1;
+  // Handle rare out-of-order codes with retries on collision.
+  for (;;) {
+    const code = `AZM-${String(n).padStart(4, '0')}`;
+    const clash = await tx.student.findFirst({ where: { centerId, code } });
+    if (!clash) return code;
+    n += 1;
+  }
+}
 
 export async function listStudents(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -132,16 +157,22 @@ export async function createStudent(req: Request, res: Response, next: NextFunct
       }
     }
 
-    const student = await prisma.student.create({
-      data: {
-        centerId: centerId!,
-        name,
-        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
-        guardianName,
-        guardianEmail,
-        guardianPhone,
-      },
-      select: studentScalarSelect,
+    // Generate the stable student code in a transaction so two admins
+    // creating students at the same moment can never collide.
+    const student = await prisma.$transaction(async (tx) => {
+      const code = await generateStudentCode(tx, centerId!);
+      return tx.student.create({
+        data: {
+          centerId: centerId!,
+          code,
+          name,
+          dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+          guardianName,
+          guardianEmail,
+          guardianPhone,
+        },
+        select: studentScalarSelect,
+      });
     });
 
     res.status(201).json({ student });

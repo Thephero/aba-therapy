@@ -46,13 +46,13 @@ export default function StudentsPage() {
       if (form.guardianPhone) payload.guardianPhone = form.guardianPhone;
       await api.post('/students', payload);
     },
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
       setShowAddModal(false);
       setForm({ name: '', dateOfBirth: '', guardianName: '', guardianEmail: '', guardianPhone: '' });
-      showToast('Student added successfully', 'success');
+      showToast(`Student added — ID: ${res?.data?.student?.code || 'pending'}`, 'success');
     },
     onError: (err: any) => {
       // At the plan limit / subscription expired? Show the inline upgrade
@@ -124,6 +124,11 @@ export default function StudentsPage() {
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-900 truncate">{student.name}</h3>
                       <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+                        {student.code && (
+                          <span className="rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-700">
+                            {student.code}
+                          </span>
+                        )}
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           {student.dateOfBirth ? formatDate(student.dateOfBirth) : '—'}

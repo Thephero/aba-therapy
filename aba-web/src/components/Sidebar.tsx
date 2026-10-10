@@ -59,7 +59,7 @@ type TrendPeriod = 'today' | 'week' | 'month';
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const [statsOpen, setStatsOpen] = useState(true);
+  const [statsOpen, setStatsOpen] = useState(false); // start minimised
   const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>('today');
 
   const { data: stats } = useQuery({
@@ -109,9 +109,9 @@ export function Sidebar() {
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-gray-200 px-6">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-          <span className="text-sm font-bold text-white">ABA</span>
+          <span className="text-sm font-bold text-white">AZM</span>
         </div>
-        <span className="font-semibold text-gray-900">TherapyHub</span>
+        <span className="font-semibold text-gray-900">AZM Therapy</span>
       </div>
 
       {/* Navigation */}

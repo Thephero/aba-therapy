@@ -3,8 +3,8 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "ABA Therapy Platform",
-  description: "Applied Behavior Analysis therapy management platform",
+  title: "AZM Therapy",
+  description: "AZM Therapy — Applied Behavior Analysis therapy management platform",
 };
 
 export default function RootLayout({

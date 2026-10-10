@@ -367,6 +367,11 @@ export default function StudentDetailPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{data.name}</h1>
             <div className="mt-1 flex items-center gap-3">
+              {data.code && (
+                <span className="rounded bg-indigo-50 px-2 py-0.5 font-mono text-xs font-semibold text-indigo-700">
+                  {data.code}
+                </span>
+              )}
               <Badge variant={data.isActive ? 'success' : 'danger'}>
                 {data.isActive ? 'Active' : 'Inactive'}
               </Badge>

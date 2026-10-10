@@ -44,7 +44,7 @@ export default function StudentsPage() {
       if (form.guardianName) payload.guardianName = form.guardianName;
       if (form.guardianEmail) payload.guardianEmail = form.guardianEmail;
       if (form.guardianPhone) payload.guardianPhone = form.guardianPhone;
-      await api.post('/students', payload);
+      return api.post('/students', payload);
     },
     onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });

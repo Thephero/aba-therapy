@@ -1,0 +1,101 @@
+=====================================================================
+ PERSONA FEEDBACK — THERAPIST / RBT ("Sara")
+ Persona 3 of 4 · ABA Therapy Platform · MVP feedback pass
+=====================================================================
+
+WHO I AM
+---------------------------------------------------------------------
+Sara, 26 — RBT therapist, 6 students, 5–6 sessions a day, one on
+top of the other. I'm on my feet with kids all day. I use the app
+between sessions and during them, usually one-handed, often on my
+phone (which... the app isn't really made for). Speed = my sanity.
+
+MY GOALS
+---------------------------------------------------------------------
+- Record data fast and correctly, without breaking the session flow.
+- Never lose a note or forget a session end.
+- Know exactly what each child's targets/programs are today.
+- Go home on time — paperwork shouldn't eat my evening.
+
+WHAT I LOVED (keep doing this)
+---------------------------------------------------------------------
++ Pending Notes card tells me what I owe before I go home.
++ "Run a Session" button takes me straight to starting — good.
++ The duration timer for behavior logging is right there with
+  Start/Stop/Reset. I don't need a stopwatch and a notepad.
++ Auto-SOAP drafts the note from my data — I fix a few lines
+  instead of writing from memory 4 hours later.
++ Editable SOAP until finalized — I can correct a typo after the
+  session ends without begging the supervisor.
+
+MY FRUSTRATIONS (fix these)
+---------------------------------------------------------------------
+1. TOO MANY TAPS FOR EVERY DATA POINT
+   Record Trial = open modal → pick program → pick target → pick
+   outcome → response → prompt level → save. In a real session,
+   with a kid waiting, I sometimes skip trials. I want a
+   quick-record mode: tap target chip → correct/incorrect. Two
+   taps, then details optional later.
+
+2. IT'S NOT PHONE-FRIENDLY
+   The layout assumes a laptop. On my phone: tiny targets,
+   dropdowns are painful, modals overflow. And the mobile app is
+   an empty shell. I need the session flow on a phone, period.
+   This is my #1 ask.
+
+3. I CAN'T SEE THE SESSION PLAN AT A GLANCE
+   When I open a student, I want "today's targets," prompt
+   hierarchy, and the behavior plan right at the top — a
+   therapist view. Right now I scroll through everything the
+   supervisor sees and hunt.
+
+4. LOGIN FAILURES ARE A BLACK BOX
+   When the server hiccups (it happened twice this month), I see
+   "Invalid email or password" — I reset my password thinking it's
+   me, then find out the server was down. Tell me the difference.
+
+5. NO OFFLINE / FLAKY-WIFI SAFETY
+   Centers have dead zones. If the app loses connection
+   mid-session I'm not sure if my trial was saved. I want a clear
+   "saved / retry" state — or offline capture that syncs later.
+
+6. CALENDAR DOESN'T HELP MY DAY
+   The calendar shows sessions but doesn't answer "what's my
+   next session, where, with whom" instantly. A "My Day" list
+   (next up, room, notes pending) would beat a grid.
+
+7. MAND/PREFERENCE RECORDING FEELS BOLTED ON
+   Mands: open modal, pick type, item, prompt, independence...
+   that's 4 fields for what is often "he asked for water
+   independently." Quick-tally buttons (+1 spontaneous, +1
+   prompted) would be so much faster.
+
+8. NO WAY TO FLAG SOMETHING TO MY SUPERVISOR
+   If a kid has a rough session or I notice something, I have no
+   in-app way to attach a note/flag for the supervisor. Back to
+   WhatsApp. There's a messages table in the backend but no UI.
+
+9. PASSWORD RESET = PHONE TAG
+   I text the admin, wait, get a temp password, log in, it's
+   still awkward. Self-serve reset please.
+
+10. END-OF-DAY PAPERWORK PILE-UP
+    Notes after the last session of the day are the worst. I'd
+    love a "wrap-up" checklist: sessions today → notes pending →
+    write in 2 minutes with auto-SOAP → done. It's half there
+    (auto-SOAP + pending notes) — connect the dots.
+
+TOP 5 FIXES I'D PAY FOR TOMORROW
+---------------------------------------------------------------------
+ 1. Mobile-friendly session recording (or a real mobile app)
+ 2. Quick-trial mode (2-tap data capture)
+ 3. "My Day" view (next session, room, targets at a glance)
+ 4. Clear save/sync status + offline tolerance
+ 5. Clear login errors (server down ≠ wrong password)
+
+EMOTIONAL ARC
+---------------------------------------------------------------------
+Optimistic (clean screens) → stressed (tap-heavy mid-session) →
+resentful (laptop-first in a phone world) →
+relieved (auto-SOAP + timer) →
+pleading ("just make it fast on my phone and I'll love it").

@@ -167,6 +167,12 @@ npx prisma db push && npm run db:seed   # creates schema + seeds demo users
 | Mand recording | ✅ Built (Record Mand modal + card in session flow) |
 | Multi-modality sessions (DTT/NET/Group) | ✅ Built (checkboxes replacing single select) |
 | User manual (`/manual`) | ✅ Built (public page + printed doc) |
+| **Subscriptions (Stripe)** | ✅ Built (awaiting Stripe price IDs + webhook secret to go live) |
+| └ 14-day trial on registration | ✅ Built |
+| └ Tier plans Basic/Pro/Enterprise (monthly/annual, AED) | ✅ Built (prices TBD in Stripe Dashboard) |
+| └ Checkout + Customer Portal (Stripe-hosted) | ✅ Built |
+| └ Student-limit enforcement + expired-trial lock | ✅ Built |
+| └ Billing page (admin-only) | ✅ Built |
 | **Backend: Messages/Attendance/Documents** | ✅ Schema added (Message, AttendanceRecord, DocumentUpload models — **no UI yet**) |
 | Mobile app (real functionality) | ❌ Stub only |
 | Billing/Stripe, compliance, encryption, audit-log UI, telehealth | ❌ Not implemented (post-MVP per plan.txt) |
@@ -212,6 +218,7 @@ npx prisma db push && npm run db:seed   # creates schema + seeds demo users
 | Aug 28 | **Parent data/selection fix**: Parent child selection now waits for the `/students` database query to finish before deciding that no child is linked, automatically selects and persists a valid linked child ID, and shows a loading state in the selector. Parent navigation links preserve `studentId`; parent session/calendar requests remain explicitly child-filtered. Sidebar active matching was tightened so only the exact parent page is highlighted. Backend and frontend typechecks plus environment guard tests pass. |
 | Aug 28 | **Parent selection race-condition fix**: Prevented a stale or empty URL query parameter from replacing a valid in-memory child selection during navigation. Verified backend typecheck, frontend typecheck, and environment guard tests. |
 | Aug 28 | **Parent selector placement fix**: Moved the shared parent selector into the authenticated dashboard layout so it renders reliably on `/dashboard/parent/*` routes, removed the duplicate nested layout wrapper, and corrected parent dashboard navigation highlighting. Backend/frontend checks pass. |
+| Oct 3 | **Subscription billing (Stripe) built**: New `Subscription` fields (`billingCycle`, `trialEndsAt`, `currentPeriodEnd`) in both schemas (SQLite + Postgres, pushed locally); new `src/services/stripe.ts` (plans Basic 199 / Pro 449 / Enterprise 899 AED monthly, annual = ×10, 14-day trial, limits 10/30/1000 students), `billingController` + `routes/billing.ts` (GET /billing/status, POST /billing/checkout-session, POST /billing/portal-session, public POST /webhooks/stripe with raw-body signature verification registered before express.json in index.ts). New centers via register start a TRIALING subscription (trialEndsAt = +14d, limit = Pro cap). `createStudent` now enforces tier cap (402 PLAN_LIMIT_REACHED) and blocks PAST_DUE/CANCELED/expired-trial centers (402 SUBSCRIPTION_INACTIVE). Webhook handles checkout.session.completed / subscription.updated / deleted / invoice.payment_failed. Frontend: new admin-only `/dashboard/billing` page (current plan card, trial banner with days left, monthly/annual toggle, plan cards → Stripe Checkout redirect, Manage billing → Customer Portal), sidebar entry with new CreditCard/ExternalLink icons added to BOTH lucide stubs. `.env.example` + `.env.production.example` document all 8 Stripe vars. **To go live:** create 6 recurring AED prices in Stripe Dashboard (matching amounts in BILLING_PLAN.md), set env vars on Render, add webhook endpoint → `STRIPE_WEBHOOK_SECRET`. Demo center stays ACTIVE/PRO (seed unchanged, grandfathered). Both typechecks pass. |
 
 ---
 

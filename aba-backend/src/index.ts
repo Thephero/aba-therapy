@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { config } from './config';
 import routes from './routes';
+import billingRoutes from './routes/billing';
 import { errorHandler, notFound } from './middleware/errorHandler';
 
 const app = express();
@@ -23,6 +24,11 @@ app.use(cors({
   credentials: true,
 }));
 app.use(morgan(config.isDev ? 'dev' : 'combined'));
+
+// Stripe webhook MUST receive the raw request body for signature
+// verification — register it before express.json parses everything else.
+app.use('/api/v1/webhooks/stripe', express.raw({ type: 'application/json' }), billingRoutes);
+
 app.use(express.json({ limit: '10mb' }));
 
 // ─── Routes ─────────────────────────────────────────────────────────────────

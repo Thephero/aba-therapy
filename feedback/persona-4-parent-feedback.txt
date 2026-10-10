@@ -1,0 +1,104 @@
+=====================================================================
+ PERSONA FEEDBACK — PARENT / GUARDIAN ("Layla")
+ Persona 4 of 4 · ABA Therapy Platform · MVP feedback pass
+=====================================================================
+
+WHO I AM
+---------------------------------------------------------------------
+Layla, 37 — mother of Youssef (6), diagnosed ASD level 1, in
+therapy for 14 months. Works part-time. Emotional stake: 100%.
+She checks the portal after work and before parent meetings.
+She is NOT technical and is easily lost by jargon (DTT, mand,
+SOAP mean nothing to her).
+
+MY GOALS
+---------------------------------------------------------------------
+- See that my child is progressing — with my own eyes, in plain
+  language.
+- Know what happens in sessions and how I can help at home.
+- Trust the center: professional communication, no chasing.
+- Feel like a partner, not a bystander.
+
+WHAT I LOVED (keep doing this)
+---------------------------------------------------------------------
++ I have a portal AT ALL. Most centers give me nothing. I can see
+  my child's sessions, programs, and a progress chart whenever I
+  want — that alone builds trust.
++ The child selector at the top — I have two kids at the center
+  and switching between them is one tap.
++ The calendar with color-coded dots (green = done, blue =
+  upcoming) — I can plan pickups and time off around it.
++ I can't accidentally change anything. Read-only sounds limiting
+  but honestly it makes me feel the data is real.
++ Privacy: I only see MY children. Nothing else leaks in.
+
+MY FRUSTRATIONS (fix these)
+---------------------------------------------------------------------
+1. THE LANGUAGE IS CLINICAL, I'M NOT
+   "Mand," "DTT," "SOAP note," "prompt level" — I don't know what
+   these mean. I want plain-language labels with a tiny "what is
+   this?" tooltip, or a parent-mode toggle that translates.
+
+2. THE CHART SHOWS COUNTS, NOT PROGRESS
+   "Sessions completed over 30 days" tells me how BUSY the center
+   is, not whether my child is LEARNING. I want: skill progress
+   per program (e.g., "Identify Red: 40% → 80% mastered"),
+   in simple up/down language with dates.
+
+3. SESSION HISTORY IS DATA, NOT A STORY
+   Rows with trial counts are for clinicians. I want a short
+   plain-language summary per session: "Today we worked on
+   colors — Youssef got 8/10 right, needed less help than last
+   week." Even an auto-generated "parent summary" would be gold.
+
+4. I CAN'T MESSAGE ANYONE
+   When I have a question ("can we move Thursday?") I call or
+   WhatsApp. If a message tab existed — even to one admin — I'd
+   use it constantly. Backend has messages; portal doesn't.
+
+5. NO DOCUMENTS / REPORTS SECTION
+   Assessment reports, invoices, medical letters I need for
+   school — all sent by WhatsApp/email outside the app. The
+   DocumentUpload table exists but there's nothing for me.
+   A "Documents" area would make this my single source of truth.
+
+6. NO HOME ACTIVITIES
+   The #1 parent ask in ABA: "what can I do at home?" Even a
+   simple "this week's home practice" posted by the supervisor
+   would make me feel like a partner, not a spectator.
+
+7. NO NOTIFICATIONS AT ALL
+   If a session is cancelled while I'm at work, I find out when
+   I arrive. I need optional push/email: session reminders,
+   cancellations, "new note posted."
+
+8. BILLING/INVOICES ARE INVISIBLE TO ME
+   I pay per session (or a package). Nothing in the portal shows
+   what I owe or what's paid. Even read-only invoice history
+   would stop the monthly "how much do I owe?" call.
+
+9. FIRST LOGIN EXPERIENCE IS COLD
+   I received an email-ish text with a temp password and a URL.
+   No welcome, no "here's what you'll see," no forced password
+   change. A 3-step welcome would make a big difference in trust.
+
+10. TIMEZONE/DATE CONFUSION (small but real)
+    Session times show without timezone context; my phone clock
+    and the calendar occasionally disagree. Label times with the
+    center's timezone.
+
+TOP 5 FIXES I'D PAY FOR TOMORROW (or stay longer because of)
+---------------------------------------------------------------------
+ 1. Plain-language parent summaries per session
+ 2. Skill-progress view per program (not just session counts)
+ 3. Messaging with the center
+ 4. Notifications (cancellations + reminders)
+ 5. Documents area (reports + invoices)
+
+EMOTIONAL ARC
+---------------------------------------------------------------------
+Grateful (a portal exists!) → curious (explore everything) →
+confused (clinical jargon) → frustrated (chart ≠ progress) →
+disconnected (no way to ask/talk) →
+hopeful (plain language + messaging + documents = I'd recommend
+this center to every parent I know).

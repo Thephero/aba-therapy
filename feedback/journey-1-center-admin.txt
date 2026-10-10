@@ -1,0 +1,137 @@
+=====================================================================
+ CUSTOMER JOURNEY MAP — CENTER ADMIN ("Amira")
+ Persona 1 of 4 · draw-ready format (one column per stage)
+=====================================================================
+
+HOW TO DRAW THIS
+---------------------------------------------------------------------
+- Horizontal axis = the 6 STAGES below (left → right).
+- For each stage draw rows/swimlanes: ACTIONS, TOUCHPOINTS,
+  THOUGHTS, EMOTION (score 1–10), PAIN POINTS, OPPORTUNITIES.
+- Mark emotion as a line chart across the stages. 😡=2 … 🤩=9.
+- Red-flag the PAIN rows; gold-flag the OPPORTUNITY rows.
+
+JOURNEY SCOPE: "From evaluating the platform to running my center
+month to month" (first 60 days).
+
+---------------------------------------------------------------------
+STAGE 1 — DISCOVERY / SIGN-UP                [EMOTION: 7 😊 hopeful]
+---------------------------------------------------------------------
+ACTIONS:
+  - Hears about platform, opens website.
+  - Registers center → 14-day trial starts automatically.
+  - Reads user manual linked from login page.
+TOUCHPOINTS: marketing/website · registration form · trial banner
+THOUGHTS: "Finally, something built for ABA centers."
+PAIN POINTS:
+  - No guided setup wizard: after sign-up she stares at an empty
+    dashboard ("now what?").
+  - Nothing tells her what happens at trial end (fear of lockout).
+OPPORTUNITIES:
+  - 5-step onboarding checklist (add staff → add students →
+    create programs → schedule → invite parents).
+  - "What happens after the trial?" explainer on the billing page.
+
+---------------------------------------------------------------------
+STAGE 2 — SETUP (STAFF + STUDENTS)           [EMOTION: 6 🙂 willing]
+---------------------------------------------------------------------
+ACTIONS:
+  - Creates staff accounts (supervisors, therapists) with temp
+    passwords.
+  - Adds students; assigns supervisor + therapists per student.
+  - Links parent accounts to children.
+TOUCHPOINTS: Users page · Students page · student detail page
+THOUGHTS: "This is all manual but at least it's all in one place."
+PAIN POINTS:
+  - No invite emails — she hands out passwords by phone/WhatsApp.
+  - No "force password change on first login" — unprofessional.
+  - Bulk import (Excel/CSV) of students missing — typing 28
+    students one by one took a whole evening.
+OPPORTUNITIES:
+  - Email invitations with self-set passwords.
+  - CSV import for students; bulk staff invite.
+
+---------------------------------------------------------------------
+STAGE 3 — FIRST WEEK OF OPERATIONS           [EMOTION: 7 😊]
+---------------------------------------------------------------------
+ACTIONS:
+  - Supervisors create programs/targets/behavior plans.
+  - Therapists run sessions; she watches the dashboard.
+  - Checks Quick Stats + trends daily (Today/Week/Month toggle).
+TOUCHPOINTS: Dashboard · MiniDashboard · Sessions page
+THOUGHTS: "I can finally see if we're busy. This looks professional
+to show investors/partners."
+PAIN POINTS:
+  - Reports show counts, not clinical outcomes — she can't answer
+    a parent's "is my child improving?" from the Reports page.
+  - Staff absences = manual reassignment shuffle (slow, scary).
+OPPORTUNITIES:
+  - Per-student progress report (PDF, parent-friendly).
+  - "Reassign today's sessions" quick action.
+
+---------------------------------------------------------------------
+STAGE 4 — BILLING DECISION (END OF TRIAL)    [EMOTION: 4 😟 anxious]
+---------------------------------------------------------------------
+ACTIONS:
+  - Receives no reminder; opens billing page to check days left.
+  - Compares tiers (Basic 199 / Pro 449 / Ent 899 AED; annual ×10).
+  - Clicks Subscribe → Stripe Checkout → card → back to app.
+TOUCHPOINTS: Billing page · Stripe Checkout · Stripe Customer Portal
+THOUGHTS: "The prices are clear... but what EXACTLY happens if the
+trial expires before I decide? Will I lose access to my data?"
+PAIN POINTS:
+  - No email reminder before trial end.
+  - Dead-end when student limit reached mid-enrollment (typed data
+    at risk of loss; must upgrade before finishing).
+  - Stripe account shows a different business name ("Naturebylily")
+    on invoices — confusing/trust-breaking for her center.
+OPPORTUNITIES:
+  - Trial-end email sequence (7/3/1 days) + in-app banner.
+  - "Upgrade and continue" flow that preserves in-progress form.
+  - Correct business identity on Stripe invoices.
+
+---------------------------------------------------------------------
+STAGE 5 — ONGOING OPERATIONS (MONTHLY LOOP)  [EMOTION: 5 😐 strained]
+---------------------------------------------------------------------
+ACTIONS (weekly/monthly rhythm):
+  - Adds new students; manages staff turnover.
+  - Reviews reports; chases therapists about pending notes.
+  - Tracks attendance OUTSIDE the app (paper/spreadsheet) and
+    invoices parents manually.
+  - Handles every "I forgot my password" personally.
+TOUCHPOINTS: Students · Users · Reports · (paper!) · WhatsApp · phone
+THOUGHTS: "Why am I still doing attendance and invoicing by hand?
+That was half the reason I bought this."
+PAIN POINTS:
+  - No attendance module in UI (DB models exist, unused).
+  - No parent invoicing.
+  - Password resets = her job, several times a week.
+  - No notifications when notes go overdue — she finds out late.
+OPPORTUNITIES:
+  - Attendance UI + per-session parent invoicing.
+  - Self-serve password reset (email link) for staff AND parents.
+  - Admin digest email: pending notes >48h, incomplete sessions.
+
+---------------------------------------------------------------------
+STAGE 6 — RETENTION / CHURN POINT            [EMOTION: 6 🙂]
+---------------------------------------------------------------------
+ACTIONS:
+  - Decides whether to renew monthly or switch to annual.
+  - Considers recommending the platform to 2 other center owners.
+TOUCHPOINTS: Billing page · Stripe Portal · word of mouth
+THOUGHTS: "If attendance + parent reports existed, I'd never
+leave. Without them, I'm paying for 60% of my workflow."
+PAIN POINTS:
+  - Renewal decision is silent — no value recap of what the
+    platform did for her this month.
+OPPORTUNITIES:
+  - Monthly "your center in numbers" email (sessions run, notes
+    signed, parents engaged) → drives annual upgrade + referrals.
+
+=====================================================================
+EMOTION CURVE (for the line chart)
+  Stage 1: 7 → Stage 2: 6 → Stage 3: 7 → Stage 4: 4 (DIP: trial
+  anxiety) → Stage 5: 5 (DIP: manual attendance/passwords) →
+  Stage 6: 6 (recovering)
+BIGGEST LEAK: Stage 4–5. Fix onboarding-to-billing continuity and
+the attendance/invoicing gap to stop churn here.

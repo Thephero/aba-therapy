@@ -47,7 +47,12 @@ git push -u origin main
    - `JWT_REFRESH_SECRET` → another long random string
    - `CORS_ORIGIN` → your Vercel URL, e.g. `https://aba-web.vercel.app` (set after Step 4, then redeploy)
    - `ENCRYPTION_KEY` → exactly 32 characters
-5. Click **Apply / Deploy**. Render will:
+5. Optional but recommended — **Stripe (subscriptions)** env vars (see `BILLING_PLAN.md`):
+   - `STRIPE_SECRET_KEY` → from https://dashboard.stripe.com/apikeys (start with `sk_test_...`)
+   - `STRIPE_WEBHOOK_SECRET` → from your Stripe webhook endpoint (step 5 below)
+   - `STRIPE_PRICE_BASIC_MONTHLY`, `STRIPE_PRICE_BASIC_ANNUAL`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_ANNUAL`, `STRIPE_PRICE_ENTERPRISE_MONTHLY`, `STRIPE_PRICE_ENTERPRISE_ANNUAL` → Price IDs created in the Stripe Dashboard
+   > Without these, everything else works; the Billing page simply shows "payments not configured".
+6. Click **Apply / Deploy**. Render will:
    - install dependencies
    - generate the Prisma client (Postgres)
    - create the database schema (`prisma db push`)
@@ -83,6 +88,15 @@ git push -u origin main
 | Therapist | `therapist@aba-demo.com`   | `therapist123`  |
 
 3. Try adding a student, a session, and a trial to confirm the backend link works end-to-end.
+
+---
+
+## Step 6 — Stripe webhook (if subscriptions are enabled)
+
+1. In the Stripe Dashboard → **Developers → Webhooks** → **Add endpoint**
+2. URL: `https://<your-render-backend>/api/v1/webhooks/stripe`
+3. Events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
+4. Copy the **Signing secret** (`whsec_...`) into Render's `STRIPE_WEBHOOK_SECRET` and redeploy.
 
 ---
 

@@ -9,6 +9,7 @@ import {
   CheckCircle2, ArrowLeft, GraduationCap, Mail, Phone, Users 
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { Term, plainStatus } from '@/components/parent/glossary';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import { PerformanceChart } from '@/components/PerformanceChart';
@@ -95,7 +96,7 @@ export default function ParentStudentPage() {
           <h1 className="text-2xl font-bold text-gray-900">{student.name}</h1>
           <div className="mt-1 flex items-center gap-3">
             <Badge variant={student.isActive ? 'success' : 'danger'}>
-              {student.isActive ? 'Active' : 'Inactive'}
+              {student.isActive ? 'Enrolled' : 'Inactive'}
             </Badge>
             {student.dateOfBirth && (
               <span className="text-sm text-gray-500">
@@ -117,7 +118,7 @@ export default function ParentStudentPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{stats.completedSessions}</p>
-                <p className="text-xs text-gray-500">Sessions Completed</p>
+                <p className="text-xs text-gray-500">Sessions attended</p>
               </div>
             </div>
           </CardContent>
@@ -204,7 +205,7 @@ export default function ParentStudentPage() {
               {student.supervisors?.length > 0 && (
                 <div>
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                    Supervisors
+                    Lead clinicians
                   </p>
                   <div className="space-y-2">
                     {student.supervisors.map((s: any) => (
@@ -223,7 +224,7 @@ export default function ParentStudentPage() {
               {student.therapists?.length > 0 && (
                 <div>
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                    Therapists
+                    Therapists working with {student.name}
                   </p>
                   <div className="space-y-2">
                     {student.therapists.map((t: any) => (
@@ -274,7 +275,7 @@ export default function ParentStudentPage() {
                   {program.targets?.length > 0 && (
                     <div className="mt-4">
                       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                        Skills Being Taught
+                        Skills being practiced
                       </p>
                       <div className="space-y-2">
                         {program.targets.map((target: any) => (
@@ -287,7 +288,7 @@ export default function ParentStudentPage() {
                                 {target.skill}
                               </span>
                               <span className="text-xs text-gray-500 ml-2">
-                                ({target.domain})
+                                (<Term term="Target" fallback="skill area" />: {target.domain})
                               </span>
                             </div>
                             <Badge 
@@ -296,7 +297,7 @@ export default function ParentStudentPage() {
                                 target.status === 'IN_PROGRESS' ? 'warning' : 'default'
                               }
                             >
-                              {target.status?.replace('_', ' ') || 'Pending'}
+                              {plainStatus(target.status)}
                             </Badge>
                           </div>
                         ))}
@@ -376,7 +377,7 @@ export default function ParentStudentPage() {
                         session.status === 'SCHEDULED' ? 'default' :
                         'danger'
                       } className="text-[10px]">
-                        {session.status?.replace('_', ' ')}
+                        {plainStatus(session.status)}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
@@ -387,10 +388,10 @@ export default function ParentStudentPage() {
                         </span>
                       )}
                       {session._count?.trials > 0 && (
-                        <span>{session._count.trials} trials</span>
+                        <span>{session._count.trials} learning attempts</span>
                       )}
                       {session._count?.behaviorRecords > 0 && (
-                        <span>{session._count.behaviorRecords} behaviors recorded</span>
+                        <span>{session._count.behaviorRecords} behavior notes</span>
                       )}
                     </div>
                   </div>

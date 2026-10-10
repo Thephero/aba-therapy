@@ -267,8 +267,8 @@ export async function actOnGoalSuggestion(req: Request, res: Response, next: Nex
     }
 
     const act = String(action || 'ACCEPT').toUpperCase();
-    if (!['ACCEPT', 'MODIFY', 'REJECT'].includes(act)) {
-      res.status(400).json({ error: 'action must be ACCEPT, MODIFY, or REJECT' });
+    if (!['ACCEPT', 'MODIFY', 'REJECT', 'CREATE_TARGET'].includes(act)) {
+      res.status(400).json({ error: 'action must be ACCEPT, MODIFY, REJECT, or CREATE_TARGET' });
       return;
     }
 
@@ -294,11 +294,48 @@ export async function actOnGoalSuggestion(req: Request, res: Response, next: Nex
       await prisma.studentGoal.create({ data });
     }
 
+    // ── One-click: accepted goal → active program target (Tier 3.14) ──
+    // Reuses the student's first in-progress program, or creates one.
+    let createdTarget: { id: string } | null = null;
+    if (act === 'CREATE_TARGET') {
+      let program = await prisma.program.findFirst({
+        where: { studentId: record.studentId, status: 'IN_PROGRESS' },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (!program) {
+        program = await prisma.program.create({
+          data: {
+            studentId: record.studentId,
+            createdById: req.user.userId,
+            name: goalEntry.category || 'New Learning Program',
+            description: `Created from assessment goal suggestion (${targetId}).`,
+          },
+        });
+      }
+      // Avoid duplicating a skill that already exists in this program.
+      const skillName = title || goalEntry.goalTitle || goalEntry.behaviorName || targetId;
+      const dup = await prisma.target.findFirst({
+        where: { programId: program.id, skill: skillName },
+      });
+      if (!dup) {
+        createdTarget = await prisma.target.create({
+          data: {
+            programId: program.id,
+            domain: goalEntry.category || 'Assessment',
+            skill: skillName,
+            masteryPercentage: 80,
+            masteryConsecutive: 3,
+          },
+          select: { id: true },
+        });
+      }
+    }
+
     const goals = await prisma.studentGoal.findMany({
       where: { studentId: record.studentId },
       orderBy: { createdAt: 'desc' },
     });
-    res.json({ goals });
+    res.json({ goals, createdTarget });
   } catch (error) {
     next(error);
   }

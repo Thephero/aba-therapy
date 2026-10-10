@@ -9,6 +9,7 @@ import {
   CheckCircle2, GraduationCap 
 } from 'lucide-react';
 import { formatDate, formatTime } from '@/lib/utils';
+import { Term, plainStatus } from '@/components/parent/glossary';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import { PerformanceChart } from '@/components/PerformanceChart';
@@ -115,10 +116,9 @@ export default function ParentDashboard() {
                     <Calendar className="h-4 w-4" />
                     Born {formatDate(student.dateOfBirth)}
                   </span>
-                )}
-                <Badge variant={student.isActive ? 'success' : 'danger'}>
-                  {student.isActive ? 'Active' : 'Inactive'}
-                </Badge>
+                )}                    <Badge variant={student.isActive ? 'success' : 'danger'}>
+                      {student.isActive ? 'Enrolled' : 'Inactive'}
+                    </Badge>
               </div>
               {student.guardianName && (
                 <p className="mt-2 text-sm text-gray-500">
@@ -252,7 +252,7 @@ export default function ParentDashboard() {
                         )}
                       </div>
                     </div>
-                    <Badge variant="default" className="text-[10px]">Scheduled</Badge>
+                    <Badge variant="default" className="text-[10px]">{plainStatus(session.status)}</Badge>
                   </div>
                 ))}
               </div>
@@ -312,11 +312,13 @@ export default function ParentDashboard() {
                           </span>
                         )}
                         {session._count?.trials > 0 && (
-                          <span>{session._count.trials} trials</span>
+                          <span>
+                            {session._count.trials} learning attempts
+                          </span>
                         )}
                       </div>
                     </div>
-                    <Badge variant="success" className="text-[10px]">Completed</Badge>
+                    <Badge variant="success" className="text-[10px]">{plainStatus(session.status)}</Badge>
                   </Link>
                 ))}
               </div>
@@ -336,7 +338,7 @@ export default function ParentDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BookOpen className="h-5 w-5 text-gray-400" />
-              Learning Programs
+              What your child is learning
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -358,7 +360,7 @@ export default function ParentDashboard() {
                   {program.targets?.length > 0 && (
                     <div className="mt-3">
                       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                        Skills Being Taught
+                        Skills being practiced
                       </p>
                       <div className="space-y-1">
                         {program.targets.slice(0, 3).map((target: any) => (
@@ -372,9 +374,9 @@ export default function ParentDashboard() {
                                 target.status === 'MASTERED' ? 'success' : 
                                 target.status === 'IN_PROGRESS' ? 'warning' : 'default'
                               }
-                              className="text-[10px]"
+                              className="text-[10px] whitespace-nowrap"
                             >
-                              {target.status?.replace('_', ' ') || 'Pending'}
+                              {plainStatus(target.status)}
                             </Badge>
                           </div>
                         ))}

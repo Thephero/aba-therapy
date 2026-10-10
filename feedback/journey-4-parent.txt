@@ -1,0 +1,138 @@
+=====================================================================
+ CUSTOMER JOURNEY MAP — PARENT / GUARDIAN ("Layla")
+ Persona 4 of 4 · draw-ready format (one column per stage)
+=====================================================================
+
+HOW TO DRAW THIS
+---------------------------------------------------------------------
+- Horizontal axis = the 6 STAGES below (left → right).
+- Swimlanes per stage: ACTIONS, TOUCHPOINTS, THOUGHTS, EMOTION
+  (1–10), PAIN POINTS, OPPORTUNITIES.
+- Emotion line chart across stages. 😡=2 … 🤩=9.
+- Journey = first 30 days as a portal parent (emotional journey —
+  this persona churns the CENTER, not the app).
+
+JOURNEY SCOPE: "From receiving my login to trusting the center
+with my child's story."
+
+---------------------------------------------------------------------
+STAGE 1 — INVITATION & FIRST LOGIN           [EMOTION: 5 😐]
+---------------------------------------------------------------------
+ACTIONS:
+  - Receives URL + temp password (via WhatsApp from admin).
+  - Logs in on her phone; no welcome screen, no forced password
+    change.
+  - Doesn't know the user manual exists.
+TOUCHPOINTS: WhatsApp message · login page · dashboard (first view)
+THOUGHTS: "Okay... I have an account. Now what am I looking at?"
+PAIN POINTS:
+  - Cold onboarding: no welcome tour, no plain-language intro,
+    password she can't change herself.
+  - URL + password over WhatsApp feels insecure.
+OPPORTUNITIES:
+  - 3-step welcome (change password → meet your child's team →
+    see this week's plan).
+  - Email invite instead of WhatsApp.
+
+---------------------------------------------------------------------
+STAGE 2 — EXPLORING MY CHILD'S WORLD         [EMOTION: 7 😊 PEAK]
+---------------------------------------------------------------------
+ACTIONS:
+  - Opens My Dashboard: child profile card, stats, 30-day chart.
+  - Opens My Child: care team faces, programs & skills, history.
+  - (Two kids? Tries the child selector — it works, one tap.)
+TOUCHPOINTS: /dashboard/parent · /dashboard/parent/student ·
+child selector
+THOUGHTS: "I can SEE his programs and who works with him. Most
+centers never show parents any of this."
+PAIN POINTS:
+  - Jargon wall: "mand," "DTT," "SOAP," "prompt level" mean
+    nothing to her.
+  - The chart shows SESSION COUNTS — busy-ness, not progress.
+OPPORTUNITIES:
+  - Plain-language mode / tooltips per term.
+  - Skill-progress view per program ("Identify Red: 40% → 80%").
+
+---------------------------------------------------------------------
+STAGE 3 — READING A SESSION                  [EMOTION: 4 😕]
+---------------------------------------------------------------------
+ACTIONS:
+  - Opens Session History → a completed session → sees trial
+    counts and behavior numbers in a table.
+  - Tries to understand what it means for her child. Fails.
+TOUCHPOINTS: parent student page → session history rows
+THOUGHTS: "8 trials, 2 behaviors... is that good? What did he
+actually DO today? I just want the story of his day."
+PAIN POINTS:
+  - Data without narrative: no plain-language session summary.
+  - Cannot ask anyone about it in-app → WhatsApp/call the center.
+OPPORTUNITIES:
+  - Auto "parent summary" per session (plain language, 3 lines).
+  - Reply/ask button on each session → goes to supervisor.
+
+---------------------------------------------------------------------
+STAGE 4 — THE CALENDAR & DAILY LOGISTICS     [EMOTION: 6 🙂]
+---------------------------------------------------------------------
+ACTIONS:
+  - Uses parent calendar: color dots (blue upcoming, green done,
+    red cancelled), day detail panel, upcoming/past sidebar.
+  - Plans pickups and days off around it.
+TOUCHPOINTS: /dashboard/parent/calendar
+THOUGHTS: "The color calendar is genuinely useful."
+PAIN POINTS:
+  - NO notifications: a cancellation reaches her only when she
+    next opens the portal (or worse, at pickup).
+  - Times lack timezone clarity; occasionally "disagrees" with
+    her phone clock.
+OPPORTUNITIES:
+  - Push/email notifications: reminders, cancellations, new
+    notes.
+  - Timezone label on all times.
+
+---------------------------------------------------------------------
+STAGE 5 — MONEY & PAPERWORK                  [EMOTION: 3 😣 LOWEST]
+---------------------------------------------------------------------
+ACTIONS:
+  - Needs the assessment report for SCHOOL — asks the center,
+    receives it by WhatsApp/email.
+  - Wants to check what she owes → nothing in the portal →
+    calls admin → gets a number → pays by transfer.
+TOUCHPOINTS: WhatsApp · phone · bank transfer (ALL outside app)
+THOUGHTS: "The portal shows progress but not paperwork or
+payments. Why is the important stuff still on WhatsApp?"
+PAIN POINTS:
+  - No Documents area (DocumentUpload model exists, unused).
+  - No invoice/financial visibility for parents.
+  - Reports/letters live outside the app — no single source of
+    truth.
+OPPORTUNITIES:
+  - Documents section (reports, letters, invoices) per child.
+  - Read-only invoice history + "amount due" card.
+
+---------------------------------------------------------------------
+STAGE 6 — BEING A PARTNER (ONGOING)          [EMOTION: 5 😐]
+---------------------------------------------------------------------
+ACTIONS:
+  - Checks the portal 2–3× a week; re-reads the chart.
+  - Wants to help at home but has no idea what to practice.
+  - Asks other parents which centers give "real updates."
+TOUCHPOINTS: portal · WhatsApp · parent community (external)
+THOUGHTS: "If they sent me home activities and answered my
+questions here, this would be my favorite thing about the center."
+PAIN POINTS:
+  - No home-practice/activity feed.
+  - One-way portal: she consumes but never contributes or asks.
+OPPORTUNITIES:
+  - "This week's home practice" posted by the supervisor.
+  - Two-way messaging (even with one admin) + satisfaction check
+    after each month.
+
+=====================================================================
+EMOTION CURVE (for the line chart)
+  Stage 1: 5 → Stage 2: 7 (PEAK: visibility builds trust) →
+  Stage 3: 4 (jargon + no story) → Stage 4: 6 → Stage 5: 3
+  (LOWEST: paperwork/payments outside the app) → Stage 6: 5
+BIGGEST LEAK: Stage 5 (documents/invoices) then Stage 3 (session
+story). Layla's trust peaks at visibility and crashes where the
+app forces her back to WhatsApp. Fix those two and she becomes
+the center's best referral channel.

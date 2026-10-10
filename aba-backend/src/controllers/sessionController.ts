@@ -51,7 +51,7 @@ export async function startSession(req: Request, res: Response, next: NextFuncti
 export async function scheduleSession(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const body = req.body as Record<string, any>;
-    const { studentId, therapistId, sessionType, programIds, scheduledFor, supervisorId, location } = body;
+    const { studentId, therapistId, sessionType, programIds, scheduledFor, supervisorId, location, recurrence } = body;
 
     if (!studentId || !therapistId || !scheduledFor) {
       res.status(400).json({ error: 'Student, therapist, and scheduled date/time are required' });
@@ -62,15 +62,54 @@ export async function scheduleSession(req: Request, res: Response, next: NextFun
       return;
     }
 
+    const commonData = {
+      studentId,
+      therapistId,
+      sessionType: normalizeSessionType(sessionType),
+      supervisorId: supervisorId || undefined,
+      location,
+    };
+
+    // ── Recurring series (Tier 3.13) ──
+    // recurrence: { weeks: 1..52 } — creates one SCHEDULED session per week
+    // at the same time-of-day as the first occurrence. "Every Sunday & Tuesday
+    // 4pm for 12 weeks" = schedule the first one, pass weeks: 12.
+    const weeks = recurrence?.weeks ? parseInt(recurrence.weeks) : 1;
+    if (weeks > 1) {
+      const first = new Date(scheduledFor);
+      const createdCount = Math.min(Math.max(weeks, 2), 52);
+      const sessions = [];
+      for (let i = 0; i < createdCount; i++) {
+        const when = new Date(first.getTime() + i * 7 * 86_400_000);
+        sessions.push(
+          prisma.session.create({
+            data: {
+              ...commonData,
+              status: 'SCHEDULED',
+              scheduledFor: when,
+              programs: {
+                create: (programIds as string[])?.map((programId: string) => ({ programId })) || [],
+              },
+            },
+            include: {
+              programs: { include: { program: { include: { targets: true } } } },
+              student: { select: { id: true, name: true } },
+              therapist: { select: { id: true, name: true, email: true } },
+              supervisor: { select: { id: true, name: true } },
+            },
+          })
+        );
+      }
+      const created = await prisma.$transaction(sessions);
+      res.status(201).json({ sessions: created, count: created.length });
+      return;
+    }
+
     const session = await prisma.session.create({
       data: {
-        studentId,
-        therapistId,
-        sessionType: normalizeSessionType(sessionType),
+        ...commonData,
         status: 'SCHEDULED',
         scheduledFor: new Date(scheduledFor),
-        supervisorId: supervisorId || undefined,
-        location,
         programs: {
           create: (programIds as string[])?.map((programId: string) => ({ programId })) || [],
         },

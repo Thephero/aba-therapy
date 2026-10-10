@@ -33,13 +33,16 @@ model Subscription {
   id                  String   @id @default(uuid())
   centerId            String   @unique
   center              Center   @relation(fields: [centerId], references: [id])
-  plan                String   @default("BASIC")       // BASIC | PRO | ENTERPRISE
-  status              String   @default("ACTIVE")      // ACTIVE | PAST_DUE | CANCELLED
+  plan                String   @default("TRIAL")       // TRIAL | BASIC | PRO | ENTERPRISE
+  status              String   @default("TRIALING")    // TRIALING | ACTIVE | PAST_DUE | CANCELED
   currentAmount       Float    @default(0)
   currency            String   @default("AED")
+  billingCycle        String?                           // MONTHLY | ANNUAL
+  trialEndsAt         DateTime?
   activeStudentLimit  Int      @default(10)
   stripeCustomerId    String?
   stripeSubscriptionId String?
+  currentPeriodEnd    DateTime?
   startDate           DateTime @default(now())
   endDate             DateTime?
   createdAt           DateTime @default(now())
@@ -75,6 +78,7 @@ model User {
   assessments      AssessmentRecord[]  @relation("AssessmentAssessor")
   attendanceMarks  AttendanceRecord[]  @relation("AttendanceMarker")
   uploadedDocs     DocumentUpload[]    @relation("DocumentUploader")
+  passwordResetTokens PasswordResetToken[]
 }
 
 model Student {
@@ -333,6 +337,18 @@ model Alert {
 
   @@index([sessionId])
   @@index([therapistId])
+}
+
+model PasswordResetToken {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
 }
 
 model AuditLog {

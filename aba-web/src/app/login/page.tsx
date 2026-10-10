@@ -24,7 +24,18 @@ export default function LoginPage() {
       await login(email, password);
       router.push('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Invalid email or password');
+      // Honest error reporting: tell the user the difference between
+      // "wrong credentials" and "the server is unreachable" — resetting
+      // your password because of an outage just wastes their time.
+      if (!err.response) {
+        setError(
+          'Cannot reach the server. Please check your connection and try again — your account is fine.'
+        );
+      } else if (err.response.status >= 500) {
+        setError('The server is having trouble right now. Please try again in a minute.');
+      } else {
+        setError(err.response?.data?.error || 'Invalid email or password');
+      }
     } finally {
       setLoading(false);
     }
@@ -84,6 +95,11 @@ export default function LoginPage() {
             </Button>
           </form>
           <p className="mt-4 text-center text-sm text-gray-500">
+            <Link href="/forgot-password" className="font-medium text-indigo-600 hover:text-indigo-800">
+              Forgot your password?
+            </Link>
+          </p>
+          <p className="mt-2 text-center text-sm text-gray-500">
             New here?{' '}
             <Link href="/manual" className="font-medium text-indigo-600 hover:text-indigo-800">
               Read the User Guide

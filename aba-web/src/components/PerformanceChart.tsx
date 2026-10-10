@@ -123,18 +123,18 @@ export function PerformanceChart({ studentId }: PerformanceChartProps) {
   if (chartData.length === 0) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-gray-400" />
-            Progress Overview
-          </CardTitle>
-        </CardHeader>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-gray-400" />
+          Sessions per week
+        </CardTitle>
+      </CardHeader>
         <CardContent>
           <div className="py-8 text-center text-gray-500">
             <BarChart3 className="h-8 w-8 mx-auto text-gray-300 mb-2" />
-            <p className="text-sm">No session data available yet</p>
+            <p className="text-sm">No sessions yet</p>
             <p className="text-xs text-gray-400 mt-1">
-              Progress charts will appear once sessions are completed
+              This chart appears once your child completes their first session
             </p>
           </div>
         </CardContent>
@@ -148,17 +148,17 @@ export function PerformanceChart({ studentId }: PerformanceChartProps) {
         <CardTitle className="flex items-center justify-between">
           <span className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-gray-400" />
-            Progress Overview
+            Sessions per week
           </span>
           <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-1 text-gray-500">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-              Sessions: {stats.totalSessions}
-            </div>
-            <div className="flex items-center gap-1 text-gray-500">
-              <Activity className="h-4 w-4 text-blue-500" />
-              Trials: {stats.totalTrials}
-            </div>
+          <div className="flex items-center gap-1 text-gray-500">
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            Sessions attended: {stats.totalSessions}
+          </div>
+          <div className="flex items-center gap-1 text-gray-500">
+            <Activity className="h-4 w-4 text-blue-500" />
+            Learning attempts: {stats.totalTrials}
+          </div>
             <div className="flex items-center gap-1">
               {stats.trend > 0 ? (
                 <TrendingUp className="h-4 w-4 text-emerald-500" />
@@ -222,10 +222,13 @@ export function PerformanceChart({ studentId }: PerformanceChartProps) {
         <div className="mt-4 flex items-center justify-center gap-6 text-sm text-gray-500">
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded-full bg-indigo-500" />
-            <span>Sessions Completed</span>
+            <span>Sessions attended</span>
           </div>
           <div className="text-gray-400">
-            Average: {stats.avgSessionsPerWeek} sessions/week
+            Average: {stats.avgSessionsPerWeek} sessions per week
+          </div>
+          <div className="text-gray-400 italic">
+            Learning progress by skill is shown in "My Child" → "Skill progress"
           </div>
         </div>
       </CardContent>

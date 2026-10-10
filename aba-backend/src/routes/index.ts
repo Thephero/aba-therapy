@@ -28,6 +28,10 @@ router.post('/auth/refresh', authController.refresh);
 router.post('/auth/logout', authenticate, authController.logout);
 router.get('/auth/me', authenticate, authController.me);
 
+// Self-serve password reset (public — no auth, by design)
+router.post('/auth/request-password-reset', authController.requestPasswordReset);
+router.post('/auth/reset-password', authController.resetPassword);
+
 // ─── Center Routes ──────────────────────────────────────────────────────────
 router.get('/centers', authenticate, authorize('CENTER_ADMIN'), centerController.listCenters);
 router.get('/centers/:id', authenticate, centerController.getCenter);
@@ -110,6 +114,35 @@ router.get('/assessments/:id', authenticate, assessmentController.getAssessment)
 router.patch('/assessments/:id', authenticate, authorize('CENTER_ADMIN', 'SUPERVISOR'), auditLog('UPDATE_RECORD', 'AssessmentRecord'), assessmentController.updateAssessmentScores);
 router.post('/assessments/:id/report', authenticate, assessmentController.getAssessmentReport);
 router.post('/assessments/goals', authenticate, authorize('CENTER_ADMIN', 'SUPERVISOR'), auditLog('CREATE_RECORD', 'StudentGoal'), assessmentController.actOnGoalSuggestion);
+
+// ─── In-app Messaging (per student thread) ─────────────────────────────────
+import * as messageController from '../controllers/messageController';
+router.get('/messages/threads', authenticate, messageController.listThreads);
+router.get('/messages/unread-count', authenticate, messageController.getUnreadCount);
+router.get('/messages/:studentId', authenticate, messageController.getThread);
+router.post('/messages/:studentId', authenticate, messageController.sendMessage);
+
+// ─── Attendance + Parent Invoicing ─────────────────────────────────────
+import * as attendanceController from '../controllers/attendanceController';
+router.get('/attendance', authenticate, attendanceController.listAttendance);
+router.get('/attendance/billing-summary', authenticate, attendanceController.getBillingSummary);
+router.post('/attendance', authenticate, attendanceController.markAttendance);
+router.delete('/attendance/:id', authenticate, attendanceController.deleteAttendance);
+
+// ─── Documents (per student) ────────────────────────────────────────
+import * as documentController from '../controllers/documentController';
+router.get('/documents', authenticate, documentController.listDocuments);
+router.post('/documents', authenticate, documentController.uploadDocument);
+router.get('/documents/:id', authenticate, documentController.downloadDocument);
+router.delete('/documents/:id', authenticate, documentController.deleteDocument);
+
+// ─── Skill progress (parent + report view) ─────────────────────────────────
+import * as progressController from '../controllers/progressController';
+router.get('/students/:studentId/skill-progress', authenticate, progressController.getStudentSkillProgress);
+
+// ─── Supervisor lookout (risk overview + co-sign queue) ──────────────────
+import * as supervisorController from '../controllers/supervisorController';
+router.get('/supervisor/overview', authenticate, supervisorController.getSupervisorOverview);
 
 // ─── Rule Engine & SOAP Notes (sessionRules) ────────────────────────────────
 router.use(sessionRulesRoutes);

@@ -1,0 +1,603 @@
+# ABA Clinical Assessment & Goal Generation Engine — Skill File
+
+**Version:** 1.0.0  
+**Target Agent:** Code Generation / Implementation Agent  
+**Goal:** Build a system where a therapist assesses a learner, enters assessment data, and the system systematically scores, evaluates, flags deficits, and suggests goals.
+
+---
+
+## 1. Purpose
+
+Create a clinical platform for ABA professionals (BCBA, BCaBA, RBT, Behavior Therapist) that:
+
+1. Provides a **structured assessment form** for VB-MAPP-style and ABLLS-R-style grids.
+2. Accepts **therapist-entered scores**.
+3. **Aggregates scores** by item, domain, level, and attempt.
+4. **Visualizes** results in a Master Grid with color-coded blocks.
+5. **Evaluates** performance using deterministic clinical rules.
+6. **Flags deficits** automatically.
+7. **Suggests goals** from a universal goal bank.
+8. **Generates reports** (SOAP notes, progress reports).
+
+The system does **not** administer the assessment or replace clinical judgment. It is a score-entry, aggregation, evaluation, and reporting engine.
+
+---
+
+## 2. System Architecture
+
+- **Architecture Type:** Neutral Score-Entry and Visualization Engine
+- **Compliance Note:** Avoid third-party copyrighted text. Use generic domain names and scoring structures. Do not embed proprietary question stems.
+- **Supported Frameworks:** VB-MAPP Grid Mapping Strategy, ABLLS-R Grid Tracking Strategy.
+- **Target Users:** BCBA, BCaBA, RBT, Behavior Therapist.
+
+### 2.1 High-Level Flow
+
+```
+Therapist assesses learner
+        ↓
+Therapist enters scores into form
+        ↓
+System validates and stores scores
+        ↓
+System aggregates scores (item → domain → level → attempt)
+        ↓
+System applies evaluation rules
+        ↓
+System flags deficits
+        ↓
+System suggests goals from goal bank
+        ↓
+System generates reports / grid visualization
+```
+
+---
+
+## 3. Data Models
+
+### 3.1 Core Entities
+
+- **Learner:** `LearnerID`, name, date of birth, diagnosis (optional), etc.
+- **Assessor:** `AssessorID`, name, role (BCBA, RBT, etc.), credentials.
+- **AssessmentRecord:** `AssessmentID`, `LearnerID`, `AssessorID`, `Date`, `AssessmentType` (VB-MAPP_GRID or ABLLS_GRID), `AttemptNumber` (1–4).
+- **ScoreEntry:** `ScoreID`, `AssessmentID`, `ItemCode`, `Score`, `Level`, `DomainCode`, `AssessmentAttempt`.
+- **Goal:** `GoalID`, `LearnerID`, `TargetID` (from goal bank), `Status` (active, mastered, revision, regression), `MasteryDate`, `Notes`.
+- **Session:** `SessionID`, `LearnerID`, `TherapistID`, `Date`, `Duration`, `Notes`.
+- **BehaviorData:** `BehaviorID`, `SessionID`, `BehaviorName`, `Frequency`, `Duration`, `ABC_Antecedent`, `ABC_Behavior`, `ABC_Consequence`.
+
+### 3.2 VB-MAPP Grid Structure
+
+```json
+{
+  "scoring_scale": [0.0, 0.5, 1.0],
+  "color_legend_by_assessment": {
+    "assessment_1": "#4CAF50",
+    "assessment_2": "#2196F3",
+    "assessment_3": "#FF9800",
+    "assessment_4": "#9C27B0"
+  },
+  "levels": [
+    {
+      "level": 1,
+      "age_range_months": "0-18",
+      "max_score_per_domain": 5,
+      "domains": [
+        { "code": "MAND", "name": "Mand Domain", "total_items": 5 },
+        { "code": "TACT", "name": "Tact Domain", "total_items": 5 },
+        { "code": "ECHOIC", "name": "Echoic Domain", "total_items": 5 },
+        { "code": "VP_MATCH", "name": "Visual Perception & Matching", "total_items": 5 },
+        { "code": "INDEPENDENT_PLAY", "name": "Independent Play", "total_items": 5 },
+        { "code": "SOCIAL", "name": "Social Behavior & Play", "total_items": 5 },
+        { "code": "MOTOR_IMITATION", "name": "Motor Imitation", "total_items": 5 },
+        { "code": "LISTENER_RESP", "name": "Listener Responding", "total_items": 5 },
+        { "code": "VOCAL", "name": "Spontaneous Vocal Behavior", "total_items": 5 }
+      ]
+    },
+    {
+      "level": 2,
+      "age_range_months": "18-30",
+      "max_score_per_domain": 5,
+      "domains": [
+        { "code": "MAND", "name": "Mand Domain", "total_items": 5 },
+        { "code": "TACT", "name": "Tact Domain", "total_items": 5 },
+        { "code": "LISTENER_RESP", "name": "Listener Responding", "total_items": 5 },
+        { "code": "VP_MATCH", "name": "Visual Perception & Matching", "total_items": 5 },
+        { "code": "INDEPENDENT_PLAY", "name": "Independent Play", "total_items": 5 },
+        { "code": "SOCIAL", "name": "Social Behavior & Play", "total_items": 5 },
+        { "code": "MOTOR_IMITATION", "name": "Motor Imitation", "total_items": 5 },
+        { "code": "LRFFC", "name": "Listener Responding by Function, Feature, Class", "total_items": 5 },
+        { "code": "INTRAVERBAL", "name": "Intraverbal Domain", "total_items": 5 },
+        { "code": "CLASSROOM_ROUTINES", "name": "Classroom Routines & Group Skills", "total_items": 5 },
+        { "code": "LINGUISTIC", "name": "Linguistic Structure", "total_items": 5 }
+      ]
+    },
+    {
+      "level": 3,
+      "age_range_months": "30-48",
+      "max_score_per_domain": 5,
+      "domains": [
+        { "code": "MAND", "name": "Mand Domain", "total_items": 5 },
+        { "code": "TACT", "name": "Tact Domain", "total_items": 5 },
+        { "code": "LISTENER_RESP", "name": "Listener Responding", "total_items": 5 },
+        { "code": "VP_MATCH", "name": "Visual Perception & Matching", "total_items": 5 },
+        { "code": "INDEPENDENT_PLAY", "name": "Independent Play", "total_items": 5 },
+        { "code": "SOCIAL", "name": "Social Behavior & Play", "total_items": 5 },
+        { "code": "LRFFC", "name": "Listener Responding by Function, Feature, Class", "total_items": 5 },
+        { "code": "INTRAVERBAL", "name": "Intraverbal Domain", "total_items": 5 },
+        { "code": "CLASSROOM_ROUTINES", "name": "Classroom Routines & Group Skills", "total_items": 5 },
+        { "code": "LINGUISTIC", "name": "Linguistic Structure", "total_items": 5 },
+        { "code": "READING", "name": "Reading Domain", "total_items": 5 },
+        { "code": "WRITING", "name": "Writing Domain", "total_items": 5 },
+        { "code": "MATH", "name": "Math Domain", "total_items": 5 }
+      ]
+    }
+  ]
+}
+```
+
+### 3.3 ABLLS Grid Structure
+
+```json
+{
+  "score_ranges_per_task": [0, 1, 2, 3, 4],
+  "domains_a_to_z": [
+    { "code": "A", "name": "Cooperation & Reinforcer Effectiveness" },
+    { "code": "B", "name": "Visual Performance" },
+    { "code": "C", "name": "Receptive Language" },
+    { "code": "D", "name": "Motor Imitation" },
+    { "code": "E", "name": "Vocal Imitation" },
+    { "code": "F", "name": "Requests (Mands)" },
+    { "code": "G", "name": "Labeling (Tacts)" },
+    { "code": "H", "name": "Intraverbals" },
+    { "code": "I", "name": "Spontaneous Vocalizations" },
+    { "code": "J", "name": "Syntax & Grammar" },
+    { "code": "K", "name": "Play & Leisure" },
+    { "code": "L", "name": "Social Interaction" },
+    { "code": "M", "name": "Group Instruction" },
+    { "code": "N", "name": "Classroom Routines" },
+    { "code": "O", "name": "Generalized Responding" },
+    { "code": "P", "name": "Reading Skills" },
+    { "code": "Q", "name": "Math Skills" },
+    { "code": "R", "name": "Writing Skills" },
+    { "code": "S", "name": "Spelling Skills" },
+    { "code": "T", "name": "Dressing Skills" },
+    { "code": "U", "name": "Eating Skills" },
+    { "code": "V", "name": "Grooming Skills" },
+    { "code": "W", "name": "Toileting Skills" },
+    { "code": "X", "name": "Gross Motor Skills" },
+    { "code": "Y", "name": "Fine Motor Skills" }
+  ]
+}
+```
+
+---
+
+## 4. Workflow
+
+### Step 1: Therapist Assesses Learner
+- Therapist selects a learner.
+- Therapist selects assessment type (VB-MAPP_GRID or ABLLS_GRID).
+- Therapist selects attempt number (1–4).
+- System loads the appropriate grid structure.
+
+### Step 2: Therapist Enters Data
+- System displays an **Assessment Form** with domains, items, and score inputs.
+- For VB-MAPP: score options `0.0`, `0.5`, `1.0`.
+- For ABLLS: score options `0`, `1`, `2`, `3`, `4`.
+- Therapist enters scores for each item.
+- Optional: notes per item.
+
+### Step 3: System Validates and Stores
+- Validate all required fields.
+- Store `AssessmentRecord` and `ScoreEntry` records.
+- Calculate domain totals, level totals, percentages.
+
+### Step 4: System Evaluates
+- Apply **Mastery Rule**, **Lack of Progress Rule**, **Regression Rule**.
+- Compare current attempt to previous attempts.
+
+### Step 5: System Flags Deficits
+- Any item with score < max score is a deficit.
+- Any domain with total < max domain score is a domain deficit.
+- Categorize: Acquired, Emerging, Deficit.
+
+### Step 6: System Suggests Goals
+- Map deficits to **Universal Goal Bank**.
+- Suggest goals based on domain and deficit severity.
+- Allow therapist to accept, modify, or reject.
+
+### Step 7: System Generates Reports
+- SOAP note.
+- Progress report with graphs.
+- Mastery summary table.
+
+---
+
+## 5. UI/UX Requirements
+
+### 5.1 Assessment Form
+
+**Fields:**
+- Learner (dropdown/search)
+- Assessor (auto-filled from logged-in user)
+- Date (date picker)
+- Assessment Type (radio: VB-MAPP Grid / ABLLS Grid)
+- Attempt Number (1–4)
+- Grid Table:
+  - Rows: Domains
+  - Columns: Items (1–5 per domain)
+  - Each cell: score input (0, 0.5, 1 or 0–4)
+  - Optional note icon per cell.
+
+**Actions:**
+- Save Draft
+- Submit Assessment
+- Cancel
+
+### 5.2 Master Grid Visualizer
+
+- Display all domains side-by-side as stacked blocks.
+- Each block represents an item.
+- Fill color based on assessment attempt color.
+- If score > 0, fill proportionally or fully.
+- If score = 0.5, render half-filled block.
+- If score = 0, leave empty.
+- Hover tooltip: item code, score, note.
+
+### 5.3 Evaluation Dashboard
+
+- Summary cards:
+  - Total Score
+  - Percentage
+  - Mastered Items
+  - Deficit Items
+- Flags:
+  - Mastery Achieved
+  - Lack of Progress
+  - Regression
+- Deficit List: table of items below max score.
+
+### 5.4 Goal Suggestion Panel
+
+- List of suggested goals from goal bank.
+- Each goal: title, operational definition, measurement type, mastery criteria.
+- Buttons: Accept, Modify, Reject.
+
+### 5.5 Reports
+
+- SOAP Note form (auto-filled).
+- Progress Report with charts.
+- Export to PDF/CSV.
+
+---
+
+## 6. Scoring & Aggregation Logic
+
+### 6.1 Item Score
+- VB-MAPP: `0.0`, `0.5`, `1.0`
+- ABLLS: `0`, `1`, `2`, `3`, `4`
+
+### 6.2 Domain Total
+- Sum of item scores in domain.
+- VB-MAPP: max = `total_items * 1.0` (e.g., 5 items → max 5.0)
+- ABLLS: max = `total_items * 4` (e.g., 5 items → max 20)
+
+### 6.3 Domain Percentage
+```
+percentage = (domain_total / domain_max) * 100
+```
+
+### 6.4 Level Total
+- Sum of all domain totals in level.
+
+### 6.5 Attempt Comparison
+- Store each attempt separately.
+- Calculate change: `current_percentage - previous_percentage`.
+
+---
+
+## 7. Evaluation & Flagging Rules
+
+### 7.1 Mastery Rule
+
+**Condition:**
+- `independent_responses >= 80%`
+- `consecutive_sessions >= 3`
+- `minimum_therapists >= 2`
+
+**Action:**
+- `FLAG_GOAL_AS_MASTERED`
+- Notification: "Mastery criteria reached for this target. Review for Generalization."
+
+### 7.2 Lack of Progress Rule
+
+**Condition:**
+- `zero_or_negative_trend`
+- `consecutive_sessions >= 6`
+
+**Action:**
+- `FLAG_GOAL_FOR_REVISION`
+- Notification: "Lack of progress detected over 6 sessions. Clinical review recommended."
+
+### 7.3 Regression Rule
+
+**Condition:**
+- `drop_below_60_percent_after_mastery`
+- `consecutive_sessions >= 2`
+
+**Action:**
+- `FLAG_REGRESSION`
+- Notification: "Performance regression flagged in maintenance phase."
+
+### 7.4 Deficit Detection
+
+- **Item Deficit:** `score < max_score_for_item`
+- **Domain Deficit:** `domain_total < domain_max`
+- **Skill Deficit Auto-Detector:** flag any item scoring less than maximum for IEP Goal Generation.
+
+---
+
+## 8. Goal Suggestion Engine
+
+### 8.1 Universal Goal Bank
+
+```json
+[
+  {
+    "category": "Behavior Reduction (BIP Targets)",
+    "target_id": "BEH_001",
+    "behavior_name": "Physical Aggression",
+    "operational_definition": "Any instance of making forceful physical contact with another person using a closed/open hand, foot, or object (e.g., hitting, kicking, biting) from a distance of within 3 feet.",
+    "measurement_type": "Frequency / Rate",
+    "common_functions": ["Escape", "Attention", "Access to Tangibles"],
+    "replacement_behaviors": ["Functional Communication Training (FCT) - Manding for Break"],
+    "default_mastery_criteria": "Zero occurrences across 5 consecutive sessions"
+  },
+  {
+    "category": "Behavior Reduction (BIP Targets)",
+    "target_id": "BEH_002",
+    "behavior_name": "Elopement / Running Away",
+    "operational_definition": "Moving more than 5 feet away from the designated instructor or area without permission in an indoor or outdoor environment.",
+    "measurement_type": "Frequency / Latency",
+    "common_functions": ["Escape", "Automatic/Sensory"],
+    "replacement_behaviors": ["Asking for 'Stop' or 'Wait' / Using Token System"],
+    "default_mastery_criteria": "0 instances of unauthorized elopement for 10 consecutive sessions"
+  },
+  {
+    "category": "Skill Acquisition - Communication",
+    "target_id": "SKILL_001",
+    "goal_title": "Mand / Requesting Preferred Items",
+    "operational_definition": "Learner will independently request desired items/activities using PECS/Vocal/AAC within 5 seconds of item visibility without verbal prompts.",
+    "measurement_type": "Trial-by-Trial / Prompt Hierarchy",
+    "prompt_levels": ["Independent", "Gestural", "Verbal", "Full Physical"],
+    "default_mastery_criteria": "80% independent accuracy across 3 consecutive sessions with 2 different staff"
+  },
+  {
+    "category": "Skill Acquisition - Social & Play",
+    "target_id": "SKILL_002",
+    "goal_title": "Turn-Taking in Structured Games",
+    "operational_definition": "Learner will take turns with a peer in a 2-player board/table game, waiting for peer's turn without vocal/physical disruption.",
+    "measurement_type": "Percentage of Opportunities",
+    "default_mastery_criteria": "90% correct unprompted turn-taking across 4 consecutive game sessions"
+  },
+  {
+    "category": "Skill Acquisition - Daily Living (ADL)",
+    "target_id": "SKILL_003",
+    "goal_title": "Handwashing Chain",
+    "operational_definition": "Learner will complete all 7 steps of the handwashing task analysis independently upon the initial directive 'Wash your hands'.",
+    "measurement_type": "Task Analysis (Forward/Backward Chaining)",
+    "task_steps": [
+      "Turn on water",
+      "Wet hands",
+      "Apply soap",
+      "Rub hands for 15 seconds",
+      "Rinse hands",
+      "Turn off water",
+      "Dry hands with towel"
+    ],
+    "default_mastery_criteria": "100% independent step completion across 3 consecutive trials"
+  }
+]
+```
+
+### 8.2 Mapping Deficits to Goals
+
+| Deficit Domain | Suggested Goal Category |
+|----------------|-------------------------|
+| MAND | SKILL_001 (Mand/Requesting) |
+| TACT | Labeling goals |
+| SOCIAL | SKILL_002 (Turn-Taking) |
+| INDEPENDENT_PLAY | Play & Leisure goals |
+| CLASSROOM_ROUTINES | SKILL_003 (ADL/Handwashing) |
+| Behavior (Aggression) | BEH_001 |
+| Behavior (Elopement) | BEH_002 |
+
+**Algorithm:**
+1. Identify all domain deficits.
+2. For each deficit, find matching goal(s) in goal bank.
+3. Rank by severity (percentage below max).
+4. Present top N goals to therapist.
+
+---
+
+## 9. Reporting Engine
+
+### 9.1 SOAP Note
+
+- **S (Subjective):** Therapist enters summary of client demeanor.
+- **O (Objective):** Auto-populated numerical data table (Total Mands, Behavior Frequencies, Mastery Updates).
+- **A (Assessment):** Auto-calculated percentage changes vs baseline and prior week average.
+- **P (Plan):** System recommendation to continue current BIP or trigger BCBA review.
+
+### 9.2 Progress Report
+
+- **Executive Summary:** Auto-generated narrative based on active vs mastered goals count.
+- **Visual Graphs:** Line charts with phase change lines for all BIP and Skill goals.
+- **Mastery Summary Table:** List of all goals achieved in reporting window with dates.
+
+---
+
+## 10. Technical Implementation Guidelines
+
+### 10.1 Database Schema
+
+**SQL Example:**
+
+```sql
+CREATE TABLE Learner (
+  LearnerID INT PRIMARY KEY,
+  Name VARCHAR(100),
+  DOB DATE,
+  Diagnosis VARCHAR(100)
+);
+
+CREATE TABLE Assessor (
+  AssessorID INT PRIMARY KEY,
+  Name VARCHAR(100),
+  Role VARCHAR(50)
+);
+
+CREATE TABLE AssessmentRecord (
+  AssessmentID INT PRIMARY KEY,
+  LearnerID INT,
+  AssessorID INT,
+  Date DATE,
+  AssessmentType VARCHAR(20),
+  AttemptNumber INT,
+  FOREIGN KEY (LearnerID) REFERENCES Learner(LearnerID),
+  FOREIGN KEY (AssessorID) REFERENCES Assessor(AssessorID)
+);
+
+CREATE TABLE ScoreEntry (
+  ScoreID INT PRIMARY KEY,
+  AssessmentID INT,
+  ItemCode VARCHAR(20),
+  Score DECIMAL(3,1),
+  Level INT,
+  DomainCode VARCHAR(20),
+  AssessmentAttempt INT,
+  FOREIGN KEY (AssessmentID) REFERENCES AssessmentRecord(AssessmentID)
+);
+
+CREATE TABLE Goal (
+  GoalID INT PRIMARY KEY,
+  LearnerID INT,
+  TargetID VARCHAR(20),
+  Status VARCHAR(20),
+  MasteryDate DATE,
+  Notes TEXT,
+  FOREIGN KEY (LearnerID) REFERENCES Learner(LearnerID)
+);
+```
+
+### 10.2 Front-End
+
+- **Framework:** React / Vue / Angular.
+- **Components:**
+  - `AssessmentForm`
+  - `MasterGrid`
+  - `EvaluationDashboard`
+  - `GoalSuggestionPanel`
+  - `ReportGenerator`
+- **State Management:** Redux / Vuex / NgRx.
+- **Charting:** Chart.js / D3.js.
+
+### 10.3 Back-End
+
+- **API:** REST or GraphQL.
+- **Endpoints:**
+  - `POST /api/assessments`
+  - `GET /api/assessments/:id`
+  - `POST /api/scores`
+  - `GET /api/evaluations/:assessmentId`
+  - `GET /api/goals/suggestions/:assessmentId`
+  - `POST /api/reports/soap`
+- **Business Logic:** Implement scoring, aggregation, evaluation, and goal suggestion in services.
+
+---
+
+## 11. Compliance & Security
+
+- **HIPAA:** Encrypt data at rest and in transit. Implement audit logs.
+- **Proprietary Tools:** VB-MAPP and ABLLS-R are proprietary. Do not embed copyrighted item text. Use generic domain names. Consult legal for commercial use.
+- **Clinical Oversight:** System outputs are recommendations. BCBA must review and sign off.
+
+---
+
+## 12. Testing
+
+- **Unit Tests:** Scoring functions, aggregation, evaluation rules.
+- **Integration Tests:** API endpoints, database operations.
+- **UI Tests:** Form submission, grid rendering, goal suggestion.
+- **Clinical Validation:** Compare system outputs with BCBA manual scoring.
+
+---
+
+## 13. Sample JSON Payloads
+
+### 13.1 Assessment Submission
+
+```json
+{
+  "learnerId": 1,
+  "assessorId": 2,
+  "date": "2025-01-15",
+  "assessmentType": "VB-MAPP_GRID",
+  "attemptNumber": 1,
+  "scores": [
+    { "itemCode": "MAND_1", "score": 1.0, "level": 1, "domainCode": "MAND" },
+    { "itemCode": "MAND_2", "score": 0.5, "level": 1, "domainCode": "MAND" },
+    { "itemCode": "TACT_1", "score": 0.0, "level": 1, "domainCode": "TACT" }
+  ]
+}
+```
+
+### 13.2 Evaluation Response
+
+```json
+{
+  "assessmentId": 101,
+  "totalScore": 1.5,
+  "totalMax": 10,
+  "percentage": 15,
+  "domainTotals": {
+    "MAND": { "total": 1.5, "max": 2, "percentage": 75 },
+    "TACT": { "total": 0, "max": 1, "percentage": 0 }
+  },
+  "flags": [
+    {
+      "type": "DEFICIT",
+      "itemCode": "TACT_1",
+      "message": "Item below max score. Goal generation recommended."
+    }
+  ],
+  "suggestedGoals": [
+    {
+      "targetId": "SKILL_001",
+      "goalTitle": "Mand / Requesting Preferred Items",
+      "reason": "MAND domain deficit"
+    }
+  ]
+}
+```
+
+---
+
+## 14. Implementation Checklist
+
+- [ ] Set up database with tables: Learner, Assessor, AssessmentRecord, ScoreEntry, Goal.
+- [ ] Build Assessment Form UI with dynamic grid based on assessment type.
+- [ ] Implement score validation and storage.
+- [ ] Implement aggregation logic (domain, level, attempt).
+- [ ] Implement Master Grid visualizer with color coding and half-scores.
+- [ ] Implement evaluation rules (mastery, lack of progress, regression).
+- [ ] Implement deficit detection.
+- [ ] Implement goal suggestion engine using universal goal bank.
+- [ ] Implement SOAP note generator.
+- [ ] Implement progress report generator with charts.
+- [ ] Add HIPAA-compliant security measures.
+- [ ] Write unit and integration tests.
+- [ ] Validate with BCBA.
+
+---
+
+**End of Skill File**

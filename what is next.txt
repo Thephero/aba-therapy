@@ -1,0 +1,137 @@
+=====================================================================
+ WHAT'S NEXT — START HERE
+ (Read this first when you come back to the project)
+ Last updated: Oct 3, 2026
+=====================================================================
+
+CURRENT STATE — WHAT IS DONE
+=====================================================================
+
+Subscription billing with Stripe is FULLY BUILT (code + UI + docs)
+but NOT yet committed, NOT pushed, and NOT configured on Render.
+
+Done in code (all typechecks pass):
+  - Subscription model extended: billingCycle, trialEndsAt,
+    currentPeriodEnd (both prisma schemas; SQLite pushed locally,
+    Postgres/Neon NOT pushed yet)
+  - Backend: services/stripe.ts, billingController.ts, routes/billing.ts
+      GET  /api/v1/billing/status        (admin)
+      POST /api/v1/billing/checkout-session (admin)
+      POST /api/v1/billing/portal-session   (admin)
+      POST /api/v1/webhooks/stripe       (public, signature-verified,
+                                          raw body kept before express.json)
+  - createStudent enforces tier cap + blocks expired trial / PAST_DUE
+  - New registrations start a 14-day TRIALING subscription
+  - Frontend: /dashboard/billing page (admin-only), sidebar entry
+  - Demo center stays grandfathered ACTIVE/PRO (seed unchanged)
+
+Pricing (starter, change anytime in Stripe Dashboard only):
+  Basic 199 AED/mo (1990/yr)  - 10 students
+  Pro    449 AED/mo (4490/yr) - 30 students
+  Ent.   899 AED/mo (8990/yr) - 1000 students
+  Annual = x10 (2 months free). Trial = 14 days (confirmed).
+
+Docs created/updated:
+  BILLING_PLAN.md            (plan -> marked IMPLEMENTED, decisions logged)
+  STRIPE_TEST_MODE_GUIDE.txt (step-by-step test-mode + local testing)
+  DEPLOY.md                  (added Stripe env vars + webhook Step 6)
+  PROJECT_PLAN.md            (feature table + Session Log row)
+  what is next.txt           (THIS FILE)
+
+=====================================================================
+BLOCKER / IMPORTANT CONTEXT
+=====================================================================
+
+Stripe account (Naturebylily) is PAUSED since Nov 30, 2024:
+  4 verification tasks "In review": passport, visa, ID, business
+  license for the account representative. 10 months stalled —
+  contact Stripe support via dashboard chat to un-stick.
+  TEST MODE still works while paused.
+
+Note: account business name is "Naturebylily" — appears on customer
+invoices. Update business details or make a dedicated account later.
+
+=====================================================================
+NEXT STEPS — IN ORDER (START FROM STEP 1)
+=====================================================================
+
+STEP 1 — COMMIT & PUSH (nothing is committed yet!)
+  Say "push" (or run):
+      git add -A
+      git commit -m "Add Stripe subscription billing (tiers, trial, enforcement, billing page)"
+      git push origin main
+  -> Render + Vercel auto-deploy (~3 min).
+  Files included: all billing code + USER_MANUAL.md update +
+  "MVP assement skill.txt" (was untracked).
+
+STEP 2 — PUSH DB SCHEMA TO NEON (one time)
+  Render -> backend service -> Settings -> Build Command, change to:
+      npm ci --include=dev && npm run db:generate:prod && npm run db:push:prod && npm run build
+  -> Manual Deploy. (Adds new Subscription columns to Postgres.)
+
+STEP 3 — STRIPE TEST MODE SETUP (see STRIPE_TEST_MODE_GUIDE.txt)
+  a. Dashboard -> Test mode ON -> copy sk_test_... key
+  b. Product catalog: create 3 products x 2 recurring AED prices
+     (amounts above) -> copy 6 price_... IDs
+  c. Developers -> Webhooks -> Add endpoint:
+     https://aba-therapy-backend-7l47.onrender.com/api/v1/webhooks/stripe
+     events: checkout.session.completed,
+             customer.subscription.updated,
+             customer.subscription.deleted,
+             invoice.payment_failed
+     -> copy whsec_...
+
+STEP 4 — RENDER ENV VARS
+  Add these 8 to the backend service (Environment):
+      STRIPE_SECRET_KEY=sk_test_...
+      STRIPE_WEBHOOK_SECRET=whsec_...
+      STRIPE_PRICE_BASIC_MONTHLY=price_...
+      STRIPE_PRICE_BASIC_ANNUAL=price_...
+      STRIPE_PRICE_PRO_MONTHLY=price_...
+      STRIPE_PRICE_PRO_ANNUAL=price_...
+      STRIPE_PRICE_ENTERPRISE_MONTHLY=price_...
+      STRIPE_PRICE_ENTERPRISE_ANNUAL=price_...
+  Save -> redeploys.
+
+STEP 5 — TEST ON LIVE (or locally per the guide)
+  Login admin@aba-demo.com -> Billing -> Subscribe (Basic/Monthly)
+  -> pay with 4242 4242 4242 4242 -> plan shows Active.
+  Also test: limit block at tier cap (402), expired-trial block,
+  Customer Portal via "Manage billing".
+
+STEP 6 — AFTER STRIPE APPROVES (un-pauses)
+  Repeat steps 3-4 with LIVE keys (sk_live_..., live price IDs,
+  live webhook whsec_...). No code changes.
+
+=====================================================================
+BACKLOG — NOT DONE YET (from earlier sessions)
+=====================================================================
+
+  1. UI for Messages / Attendance / Documents
+     (DB models exist — Message, AttendanceRecord, DocumentUpload —
+     but no backend routes or frontend pages yet)
+  2. Improve login error messaging (distinguish "server unreachable"
+     vs "invalid credentials")
+  3. Verify Reports & Analytics counts reflect status correctly
+  4. Consider making GitHub repo private (demo creds are public)
+  5. Real mobile app (aba-mobile is a stub)
+  6. Automated API isolation tests (no test runner in repo yet)
+  7. Optional: in-app card update page instead of Stripe Portal only
+
+=====================================================================
+KEY FILES (cheat sheet)
+=====================================================================
+
+  Backend billing ......... aba-backend/src/services/stripe.ts
+  Billing routes .......... aba-backend/src/routes/billing.ts
+  Billing controller ...... aba-backend/src/controllers/billingController.ts
+  Limit enforcement ....... aba-backend/src/controllers/studentController.ts
+    (search "Subscription limit enforcement")
+  Billing page ............ aba-web/src/app/dashboard/billing/page.tsx
+  Sidebar entry ........... aba-web/src/components/Sidebar.tsx
+  Plan config/prices ...... aba-backend/src/services/stripe.ts (top of file)
+  Full billing plan ....... BILLING_PLAN.md
+  Test guide .............. STRIPE_TEST_MODE_GUIDE.txt
+  Living project doc ...... PROJECT_PLAN.md (append Session Log rows!)
+
+=====================================================================

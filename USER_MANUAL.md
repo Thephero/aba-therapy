@@ -74,6 +74,17 @@ Click any student card to open their profile. From here you can:
 - Manage **Behavior Plans** (see section 5).
 - **Link a Parent Account** (Admin / Supervisor) so a parent can log in and see only their child.
 
+### Managing staff accounts (Admin)
+
+Go to the **Users/Staff** page to manage everyone who works at the center:
+
+- **Add staff** — create accounts for Supervisors, Therapists, and Parents (name, email, temporary password, role).
+- **Edit or deactivate** an account at any time.
+- **Assign students to staff** — open a staff member's card and pick the students they work with.
+- **Assign therapists to supervisors** (Admin) — defines each supervisor's caseload.
+
+> Therapists only see students assigned to them; supervisors see their whole caseload; admins see everything.
+
 ---
 
 ## 4. Programs & Targets
@@ -171,12 +182,14 @@ The **Calendar** page shows scheduled and past sessions so you can see the week 
 
 ## 10. For Parents & Guardians
 
-If you're a parent, when you log in you'll see **only your child's information**:
+Parents get a dedicated, **read-only** portal. When you log in you land on **My Dashboard** and see **only your child's information**. If you have more than one child at the center, a **"Viewing child"** selector at the top lets you switch between them — everything below follows the selected child.
 
-- **Students** — your child's profile with programs and targets.
-- **Sessions** — your child's session history.
+- **My Dashboard** — your child's profile card, quick stats (sessions completed, upcoming sessions, active programs), a 30-day performance chart, upcoming and recent sessions, and a programs overview.
+- **My Child** — the detailed profile: care team (supervisors & therapists), programs & skills with mastery status, and full session history with trial and behavior counts.
+- **Session History** — every past session with what was worked on.
+- **Calendar** — a month grid of your child's sessions, color-coded (blue = upcoming, green = completed, amber = in progress, red = cancelled). Click any day for details, and use the sidebar for upcoming/past sessions.
 
-Parents have read-only access; only the center's staff can make changes.
+Parents **cannot** start sessions, record data, or change anything — only the center's staff can.
 
 ---
 

@@ -33,4 +33,6 @@ declare module 'lucide-react' {
   export const Send: LucideIcon;
   export const Check: LucideIcon;
   export const Download: LucideIcon;
+  export const CreditCard: LucideIcon;
+  export const ExternalLink: LucideIcon;
 }

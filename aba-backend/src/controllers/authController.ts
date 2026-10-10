@@ -1,7 +1,121 @@
 import { prisma } from '../utils/prisma';
+import { PLAN_LIMITS, TRIAL_DAYS } from '../services/stripe';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, TokenPayload } from '../utils/jwt';
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
+
+// ─── Password reset (self-serve, Tier 0) ────────────────────────────────────
+// Tokens are stored hashed; the raw token only ever appears in the
+// "emailed" link. Email delivery is a console print in this MVP —
+// Swap in Resend/SendGrid by replacing sendPasswordResetEmail().
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function getResetFrontendBase(): string {
+  const origins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
+    .split(',')
+    .map((o) => o.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+  return origins[0] || 'http://localhost:3000';
+}
+
+async function sendPasswordResetEmail(email: string, name: string, resetUrl: string): Promise<void> {
+  // MVP delivery: print to the server log (visible in Render logs).
+  // Replace this body with a real email provider call when ready.
+  console.log(
+    `\n📧 [PASSWORD RESET EMAIL — would be delivered to ${email}]
+To: ${name} <${email}>
+Subject: Reset your ABA Therapy Platform password
+
+Hi ${name},
+
+Someone requested a password reset for your account.
+Open this link to choose a new password (valid for 1 hour):
+
+${resetUrl}
+
+If you didn't request this, you can ignore this email.
+`
+  );
+}
+
+export async function requestPasswordReset(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { email } = req.body as Record<string, any>;
+    if (!email || typeof email !== 'string') {
+      res.status(400).json({ error: 'Email is required' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+
+    // Always return 200 with the same message whether or not the account
+    // exists — never leak which emails are registered.
+    if (user && user.isActive) {
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      await prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashToken(rawToken),
+          expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS),
+        },
+      });
+      const resetUrl = `${getResetFrontendBase()}/reset-password?token=${rawToken}`;
+      await sendPasswordResetEmail(user.email, user.name, resetUrl);
+    }
+
+    res.json({
+      message: 'If an account exists for that email, a reset link has been sent. Check your inbox (and spam).',
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { token, password } = req.body as Record<string, any>;
+    if (!token || !password || typeof password !== 'string' || password.length < 8) {
+      res.status(400).json({ error: 'A valid token and a password of at least 8 characters are required' });
+      return;
+    }
+
+    const record = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash: hashToken(token as string) },
+      include: { user: true },
+    });
+
+    if (
+      !record ||
+      record.usedAt ||
+      record.expiresAt.getTime() < Date.now() ||
+      !record.user.isActive
+    ) {
+      res.status(400).json({ error: 'This reset link is invalid or has expired. Please request a new one.' });
+      return;
+    }
+
+    const passwordHash = await hashPassword(password);
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: record.userId },
+        data: { passwordHash, refreshToken: null }, // force re-login everywhere
+      }),
+      prisma.passwordResetToken.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    res.json({ message: 'Password updated. You can now sign in with your new password.' });
+  } catch (error) {
+    next(error);
+  }
+}
 
 // Role constants matching schema string values
 const ROLES = {
@@ -23,16 +137,17 @@ export async function register(req: Request, res: Response, next: NextFunction):
       return;
     }
 
-    // Create center with subscription
+    // Create center with a 14-day trial subscription
     const center = await prisma.center.create({
       data: {
         name: centerName || `${name}'s Center`,
         subscription: {
           create: {
-            plan: 'BASIC',
-            status: 'ACTIVE',
+            plan: 'TRIAL',
+            status: 'TRIALING',
             currentAmount: 0,
-            activeStudentLimit: 10,
+            activeStudentLimit: PLAN_LIMITS.PRO, // generous during trial
+            trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
           },
         },
       },

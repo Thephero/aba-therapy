@@ -1,0 +1,100 @@
+=====================================================================
+ PERSONA FEEDBACK — SUPERVISOR / BCBA ("Omar")
+ Persona 2 of 4 · ABA Therapy Platform · MVP feedback pass
+=====================================================================
+
+WHO I AM
+---------------------------------------------------------------------
+Omar, 34 — BCBA supervisor, caseload of ~10 students across 3
+therapists. I design programs, set targets and behavior plans,
+review session data daily, and co-sign notes. Clinical quality is
+my reputation. I live in the data.
+
+MY GOALS
+---------------------------------------------------------------------
+- Know instantly if a student is stalling or regressing.
+- Make sure therapists collect data the same way every time.
+- Spend my time on clinical decisions, not admin/typing.
+- Co-sign accurate notes without chasing therapists.
+
+WHAT I LOVED (keep doing this)
+---------------------------------------------------------------------
++ Behavior Plans with supervisor-locked data type: the therapist
+  literally cannot log frequency when I asked for duration. Data
+  consistency problem solved at the root.
++ SOAP auto-generation with the per-program breakdown — it drafts
+  from real trial data, so notes are accurate and I edit, not
+  transcribe.
++ Targets with mastery criteria (% + consecutive sessions) built
+  into the program structure — matches how I think clinically.
++ Access control: therapists see only their students. My caseload
+  data isn't polluted by other people's records.
++ Assessments (VB-MAPP / ABLLS-R grids) with deficit lists and
+  suggested goals — huge time-saver for program design.
+
+MY FRUSTRATIONS (fix these)
+---------------------------------------------------------------------
+1. I HAVE TO DIG FOR REGRESSION
+   Deficit/regression flags exist inside assessments, but my daily
+   question — "which of my 10 students is stalling THIS week?" —
+   requires opening each student. I want a supervisor home view:
+   a list sorted by risk (no progress on target X in N days,
+   accuracy dropped >20%, note not co-signed for 5 days).
+
+2. CO-SIGNING IS ONE-BY-ONE
+   I co-sign each SOAP note individually from each session. I want
+   a queue: "7 notes awaiting my signature" → open → sign → next,
+   with the session data beside the note for a fast sanity check.
+
+3. NO WAY TO COMMUNICATE WITH THERAPISTS IN-APP
+   When I adjust a target mid-week I have to WhatsApp the
+   therapist. The Message model exists in the database but there's
+   no UI. Clinical instructions scattered across WhatsApp = risk.
+
+4. ASSESSMENT SUGGESTED GOALS DON'T FLOW INTO PROGRAMS
+   I accept a suggested goal from the VB-MAPP... and then I still
+   have to create the program/target manually. The acceptance
+   should pre-fill a new target (one click), otherwise it's a
+   read-only pretty list.
+
+5. SESSION SCHEDULING IS BASIC
+   No recurring sessions. Every child has the same weekly
+   schedule; I want "every Sun/Tue 4pm for 12 weeks," not 24
+   manual entries. Calendar is also slow at answering "who is
+   free Tuesday at 3?"
+
+6. TARGET PROMPT DATA IS BURIED
+   I can see correctness, but prompt-level performance over time
+   (is the child fading prompts?) needs charting per target.
+   Right now it's a table; I want a learning-curve graph.
+
+7. PROGRESS REPORTS FOR PARENTS ARE NOT CLINICAL-GRADE
+   Parents ask "show me progress." What I can give them today is
+   the parent portal (good) but no formal progress report PDF
+   with graphs I'd trust for an IEP/review meeting.
+
+8. SESSION END-TO-END TIME PRESSURE
+   Recording trials is fine, but switching between targets means
+   re-opening the modal each time. During a live session with a
+   child, every extra tap matters. I want a sticky/quick-trial
+   bar with the last-used target pre-selected.
+
+9. NO INTER-OBSERVER / DATA-QUALITY TOOLS
+   I can't compare two observers or spot suspicious data (e.g.,
+   100% correct on 40 trials in 10 minutes). Even a simple
+   "implausible data" flag would help audits.
+
+TOP 5 FIXES I'D PAY FOR TOMORROW
+---------------------------------------------------------------------
+ 1. Supervisor risk dashboard (stalling students, overdue notes)
+ 2. Co-sign queue with bulk signing
+ 3. In-app messaging (therapist ↔ supervisor, per student)
+ 4. Suggested goals → one-click create program/target
+ 5. Recurring sessions + staff-availability-aware calendar
+
+EMOTIONAL ARC
+---------------------------------------------------------------------
+Impressed (behavior plans, assessments!) → energized (auto-SOAP) →
+frustrated (no risk overview, co-sign one-by-one) →
+worried (WhatsApp for clinical instructions) →
+committed (fix 1–3 and I'm an evangelist).

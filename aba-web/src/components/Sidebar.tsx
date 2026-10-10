@@ -20,20 +20,38 @@ import {
   LogOut,
   Activity,
   ChevronDown,
+  CreditCard,
+  MessagesSquare,
+  CalendarCheck2,
+  Wallet,
+  FolderOpen,
+  Eye,
+  TrendingUp,
+  ListChecks,
 } from 'lucide-react';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['center_admin', 'supervisor', 'therapist'] },
   { href: '/dashboard/parent', label: 'My Dashboard', icon: LayoutDashboard, roles: ['parent'] },
   { href: '/dashboard/users', label: 'Users', icon: Users, roles: ['center_admin'] },
+  { href: '/dashboard/messages', label: 'Messages', icon: MessagesSquare, roles: ['center_admin', 'supervisor', 'therapist'] },
+  { href: '/dashboard/attendance', label: 'Attendance', icon: CalendarCheck2, roles: ['center_admin', 'supervisor', 'therapist'] },
+  { href: '/dashboard/parent/messages', label: 'Messages', icon: MessagesSquare, roles: ['parent'] },
+  { href: '/dashboard/parent/billing', label: 'Sessions & Payments', icon: Wallet, roles: ['parent'] },
+  { href: '/dashboard/documents', label: 'Documents', icon: FolderOpen, roles: ['center_admin', 'supervisor', 'therapist'] },
+  { href: '/dashboard/parent/documents', label: 'Documents', icon: FolderOpen, roles: ['parent'] },
   { href: '/dashboard/students', label: 'Students', icon: GraduationCap, roles: ['center_admin', 'supervisor', 'therapist'] },
   { href: '/dashboard/parent/student', label: 'My Child', icon: GraduationCap, roles: ['parent'] },
   { href: '/dashboard/programs', label: 'Programs', icon: BookOpen, roles: ['center_admin', 'supervisor', 'therapist'] },
   { href: '/dashboard/sessions', label: 'Sessions', icon: ClipboardList, roles: ['center_admin', 'supervisor', 'therapist'] },
+  { href: '/dashboard/my-day', label: 'My Day', icon: ListChecks, roles: ['therapist', 'supervisor', 'center_admin'] },
   { href: '/dashboard/parent/student', label: 'Session History', icon: ClipboardList, roles: ['parent'] },
   { href: '/dashboard/calendar', label: 'Calendar', icon: Calendar, roles: ['center_admin', 'supervisor', 'therapist'] },
   { href: '/dashboard/parent/calendar', label: 'Calendar', icon: Calendar, roles: ['parent'] },
+  { href: '/dashboard/parent/progress', label: 'Skill Progress', icon: TrendingUp, roles: ['parent'] },
   { href: '/dashboard/reports', label: 'Reports', icon: BarChart3, roles: ['center_admin', 'supervisor'] },
+  { href: '/dashboard/lookout', label: 'Lookout', icon: Eye, roles: ['supervisor'] },
+  { href: '/dashboard/billing', label: 'Billing', icon: CreditCard, roles: ['center_admin'] },
 ];
 
 type TrendPeriod = 'today' | 'week' | 'month';

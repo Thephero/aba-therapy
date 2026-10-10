@@ -23,6 +23,9 @@ export default function StudentsPage() {
   const [form, setForm] = useState({
     name: '', dateOfBirth: '', guardianName: '', guardianEmail: '', guardianPhone: '',
   });
+  // Set when the API returns 402 (plan limit / subscription) — the typed
+  // form stays intact so the admin can upgrade and simply retry.
+  const [limitError, setLimitError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data, isLoading, isError, error } = useQuery({
@@ -35,6 +38,7 @@ export default function StudentsPage() {
 
   const addMutation = useMutation({
     mutationFn: async () => {
+      setLimitError(null);
       const payload: any = { name: form.name };
       if (form.dateOfBirth) payload.dateOfBirth = form.dateOfBirth;
       if (form.guardianName) payload.guardianName = form.guardianName;
@@ -51,7 +55,13 @@ export default function StudentsPage() {
       showToast('Student added successfully', 'success');
     },
     onError: (err: any) => {
-      showToast(err?.response?.data?.error || 'Failed to add student. Please try again.', 'error');
+      // At the plan limit / subscription expired? Show the inline upgrade
+      // banner instead of a dead-end toast — keep the typed form intact.
+      if (err?.response?.status === 402) {
+        setLimitError(err.response.data?.error || 'Your plan limit has been reached. Upgrade to add more students.');
+      } else {
+        showToast(err?.response?.data?.error || 'Failed to add student. Please try again.', 'error');
+      }
     },
   });
 
@@ -221,8 +231,32 @@ export default function StudentsPage() {
               placeholder="(555) 123-4567"
             />
           </div>
+          {limitError && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+              <p className="text-sm font-medium text-amber-900">You've reached your plan limit</p>
+              <p className="mt-1 text-xs text-amber-800">{limitError}</p>
+              <div className="mt-2 flex items-center gap-2">
+                <Link
+                  href="/dashboard/billing"
+                  className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+                >
+                  Upgrade plan →
+                </Link>
+                <button
+                  type="button"
+                  className="text-xs font-medium text-amber-800 underline"
+                  onClick={() => addMutation.mutate()}
+                >
+                  Try again after upgrading
+                </button>
+              </div>
+              <p className="mt-1.5 text-[10px] text-amber-700">
+                Everything you've typed stays here — upgrade, come back, and add {form.name || 'the student'}.
+              </p>
+            </div>
+          )}
           <div className="flex justify-end gap-3 pt-2">
-            {addMutation.isError && (
+            {!limitError && addMutation.isError && (
               <p className="mr-auto self-center text-sm text-red-600">
                 {(addMutation.error as any)?.response?.data?.error || 'Unable to add student. Check the API connection and try again.'}
               </p>

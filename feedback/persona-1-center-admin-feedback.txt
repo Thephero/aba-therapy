@@ -1,0 +1,107 @@
+=====================================================================
+ PERSONA FEEDBACK — CENTER ADMIN ("Amira")
+ Persona 1 of 4 · ABA Therapy Platform · MVP feedback pass
+=====================================================================
+
+WHO I AM
+---------------------------------------------------------------------
+Amira, 41 — founder/director of a small ABA center in Dubai.
+4 supervisors, 12 therapists, ~28 active students. Not technical —
+she hired you (or a tool) so she doesn't have to think about
+servers, plans, or passwords. She cares about: enrollment growing,
+parents happy, staff accountable, and money coming in on time.
+
+MY GOALS
+---------------------------------------------------------------------
+- Run the center from one place: staff, students, reports, billing.
+- Know that parents are seeing their child's progress (retention!).
+- Make sure notes are co-signed and data is complete (quality).
+- Not lose students because the tool is slow or confusing.
+
+WHAT I LOVED (keep doing this)
+---------------------------------------------------------------------
++ One place for everything: staff, students, programs, sessions,
+  reports, calendar — I don't juggle spreadsheets anymore.
++ The Today/Week/Month toggle with trend arrows — I finally see
+  "are we busier than last month?" at a glance.
++ Staff can only see their assigned students. When I heard about
+  the privacy fix I felt much safer recommending this to parents.
++ Parents have their own portal and can't touch anything. Fewer
+  panicked phone calls asking "did the therapist write notes?"
++ Billing page: I can see my plan, days left in trial, students
+  used vs. my limit, and I understand what I'm paying for.
+
+MY FRUSTRATIONS (fix these)
+---------------------------------------------------------------------
+1. ADDING A STUDENT IS A DEAD END WHEN THE LIMIT HITS
+   When I hit my plan's student cap, adding a student just fails.
+   The upgrade prompt exists, but the flow feels like punishment:
+   I'm busy, I need to enroll a child NOW. I want: "You're at 10/10
+   on Basic. Upgrade to Pro and continue adding this student" —
+   one click, carry over the info I already typed.
+
+2. NO WAY TO RE-ORDER / RE-ASSIGN ON STAFF ABSENCE
+   A therapist calls in sick. I want to re-assign today's sessions
+   to another therapist in two clicks. Today I go into the student,
+   unassign, reassign... it's slow and I'm scared I'll break
+   something. A "reassign today's sessions" action would save me.
+
+3. REPORTS ARE NUMBERS, NOT ANSWERS
+   Reports show totals + trends, which is nice, but I can't answer
+   the questions parents actually ask me: "Is my child improving?"
+   "Show me 3 months." I want an exportable, parent-friendly
+   progress report per student (PDF) I can print or email.
+
+4. NO ATTENDANCE MODULE YET
+   I track attendance on paper. The database has attendance tables
+   (I was told), but there's nothing for me to click. Invoicing
+   parents per attended session is manual. This is my #1 most
+   wanted feature.
+
+5. PASSWORD RESETS ARE ALL ON ME
+   Every "I forgot my password" comes to me — I log into the Users
+   page, edit the account, set a temp password, phone the staff
+   member/parent. It's 5–10 minutes each time, several times a
+   week. A "reset password" button that emails a link would give
+   me my life back.
+
+6. NO NOTIFICATIONS WHEN STAFF FALL BEHIND
+   I find out a note wasn't written when I look at the Pending
+   Notes card. I want an alert (or a weekly email digest):
+   "3 notes pending > 48h, 2 sessions never ended properly."
+
+7. TRIAL & BILLING ANXIETY
+   The trial banner shows days left, but nothing tells me what
+   happens ON the expiry day: do I get locked out? Does my data
+   survive? I don't want to find out the hard way. A clear
+   "your trial ends in 3 days — here's what happens" email/screen.
+
+8. ACCOUNT-LEVEL SETTINGS ARE MISSING
+   Center name, logo, working hours, session lengths, currency...
+   I expected a Settings page. There isn't one. Also no way to
+   see my own subscription invoices without Stripe portal (fine,
+   but link it clearly).
+
+9. ONBOARDING A NEW STAFF MEMBER IS CLUNKY
+   I create the account with a temp password and have to give it
+   verbally. No invite email, no "force password change on first
+   login." Feels insecure and unprofessional.
+
+10. MOBILE ISN'T REAL
+    I checked the mobile app — it's a login screen and nothing
+    else. I expected at least "view today's schedule" on my phone
+    between meetings. I use my phone 60% of the time.
+
+TOP 5 FIXES I'D PAY FOR TOMORROW
+---------------------------------------------------------------------
+ 1. Attendance + per-session parent invoicing
+ 2. Parent-friendly student progress report (PDF export)
+ 3. Password reset (self-serve, emailed link)
+ 4. Smooth "at limit → upgrade without losing my typed data"
+ 5. Alerts for pending notes / incomplete sessions (admin digest)
+
+EMOTIONAL ARC (how the app makes me feel)
+---------------------------------------------------------------------
+Excited (all-in-one!) → confident (reports look professional) →
+annoyed (limit dead-end, manual attendance) → anxious (trial
+expiry, password babysitting) → hopeful (if they fix 1–5, I stay).

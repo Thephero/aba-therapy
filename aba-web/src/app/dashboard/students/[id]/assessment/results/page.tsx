@@ -74,16 +74,26 @@ export default function AssessmentResultsPage() {
   });
 
   const goalMutation = useMutation({
-    mutationFn: async (payload: { targetId: string; action: 'ACCEPT' | 'MODIFY' | 'REJECT'; title?: string; operationalDefinition?: string; masteryCriteria?: string }) => {
-      await api.post('/assessments/goals', { assessmentId, ...payload });
+    mutationFn: async (payload: { targetId: string; action: 'ACCEPT' | 'MODIFY' | 'REJECT' | 'CREATE_TARGET'; title?: string; operationalDefinition?: string; masteryCriteria?: string }) => {
+      const { data } = await api.post('/assessments/goals', { assessmentId, ...payload });
+      return data as { createdTarget?: { id: string } | null };
     },
-    onSuccess: (_res, payload) => {
+    onSuccess: (res, payload) => {
       queryClient.invalidateQueries({ queryKey: ['assessment', assessmentId] });
       setEditingGoal(null);
-      showToast(
-        payload.action === 'ACCEPT' ? 'Goal accepted' : payload.action === 'REJECT' ? 'Goal rejected' : 'Goal updated',
-        'success'
-      );
+      if (payload.action === 'CREATE_TARGET') {
+        showToast(
+          res.createdTarget
+            ? 'Goal added as a practice target in this student\'s program — ready for sessions'
+            : 'This skill already exists in the program',
+          'success'
+        );
+      } else {
+        showToast(
+          payload.action === 'ACCEPT' ? 'Goal accepted' : payload.action === 'REJECT' ? 'Goal rejected' : 'Goal updated',
+          'success'
+        );
+      }
     },
     onError: (err: any) => showToast(err?.response?.data?.error || 'Failed to save goal', 'error'),
   });
@@ -446,6 +456,16 @@ export default function AssessmentResultsPage() {
                         </Button>
                         <Button size="sm" disabled={goalMutation.isPending} onClick={() => goalMutation.mutate({ targetId: g.targetId, action: 'ACCEPT' })}>
                           <Check className="h-3.5 w-3.5" /> Accept
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="font-semibold text-indigo-600"
+                          disabled={goalMutation.isPending}
+                          onClick={() => goalMutation.mutate({ targetId: g.targetId, action: 'CREATE_TARGET' })}
+                          title="Accept this goal and add it to the student's program as a practice target"
+                        >
+                          + Create target
                         </Button>
                         <Button
                           size="sm"

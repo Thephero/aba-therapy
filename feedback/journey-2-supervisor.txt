@@ -1,0 +1,130 @@
+=====================================================================
+ CUSTOMER JOURNEY MAP — SUPERVISOR / BCBA ("Omar")
+ Persona 2 of 4 · draw-ready format (one column per stage)
+=====================================================================
+
+HOW TO DRAW THIS
+---------------------------------------------------------------------
+- Horizontal axis = the 6 STAGES below (left → right).
+- Swimlanes per stage: ACTIONS, TOUCHPOINTS, THOUGHTS, EMOTION
+  (1–10), PAIN POINTS, OPPORTUNITIES.
+- Emotion line chart across stages. 😡=2 … 🤩=9.
+- This is a WEEKLY LOOP journey — stages 4–6 repeat every week.
+
+JOURNEY SCOPE: "From new student intake to co-signed note" —
+the clinical quality cycle Omar lives in.
+
+---------------------------------------------------------------------
+STAGE 1 — INTAKE & ASSESSMENT                [EMOTION: 8 😃]
+---------------------------------------------------------------------
+ACTIONS:
+  - Admin adds new student, assigns him as supervisor.
+  - Runs VB-MAPP or ABLLS-R: setup → score entry → submit.
+  - Reviews evaluation dashboard: totals, deficits, flags,
+    suggested goals.
+TOUCHPOINTS: student profile · Assessments (grids, master grid,
+deficit list, suggested goals)
+THOUGHTS: "The grid tool saves me hours. This is genuinely good."
+PAIN POINTS:
+  - Accepted suggested goals do NOT flow into Programs — he must
+    re-create every target by hand (double entry).
+OPPORTUNITIES:
+  - One-click "accept goal → creates target" bridge.
+
+---------------------------------------------------------------------
+STAGE 2 — PROGRAM DESIGN                     [EMOTION: 7 🙂]
+---------------------------------------------------------------------
+ACTIONS:
+  - Creates programs (e.g., Color Identification) per student.
+  - Adds targets: domain, prompt hierarchy, mastery criteria.
+  - Creates behavior plans (FREQUENCY vs DURATION) with ABC
+    options locked for therapists.
+TOUCHPOINTS: Programs page (Manage modal) · student profile
+(behavior plans card)
+THOUGHTS: "Locked data types = consistent data. Love it."
+PAIN POINTS:
+  - No program templates ("copy program from similar student").
+  - Prompt-performance data isn't charted per target yet.
+OPPORTUNITIES:
+  - Program templates library; learning-curve charts per target.
+
+---------------------------------------------------------------------
+STAGE 3 — ASSIGN & SCHEDULE                  [EMOTION: 5 😐]
+---------------------------------------------------------------------
+ACTIONS:
+  - Assigns therapists to the student.
+  - Schedules sessions for the week (one by one).
+TOUCHPOINTS: student detail (assign) · Sessions page (Schedule
+button) · Calendar
+THOUGHTS: "Every child has a fixed weekly schedule — why am I
+entering the same slot 12 times?"
+PAIN POINTS:
+  - No recurring sessions.
+  - No therapist-availability view; conflicts discovered late.
+OPPORTUNITIES:
+  - "Every Sun/Tue 4pm × 12 weeks" recurrence.
+  - Availability/conflict indicators in calendar.
+
+---------------------------------------------------------------------
+STAGE 4 — DAILY DATA REVIEW (WEEKLY LOOP)    [EMOTION: 6 🙂]
+---------------------------------------------------------------------
+ACTIONS:
+  - Opens each of ~10 students to check trial accuracy, behavior
+    counts, mand data from yesterday's sessions.
+  - Looks for stalling targets by scrolling tables manually.
+TOUCHPOINTS: student profiles · session details · Programs page
+THOUGHTS: "I need ONE screen: which kids are stalling this week?"
+PAIN POINTS:
+  - NO risk overview: stalling/regression must be hunted student
+    by student. (Assessment flags exist but only inside
+    assessments.)
+  - No inter-observer/implausible-data checks.
+OPPORTUNITIES:
+  - Supervisor home: risk-sorted list (no progress in N days,
+    accuracy drop >20%, notes unsigned).
+  - Data-quality flags (e.g., 100% on 40 trials in 10 min).
+
+---------------------------------------------------------------------
+STAGE 5 — COACHING & INSTRUCTIONS            [EMOTION: 4 😟]
+---------------------------------------------------------------------
+ACTIONS:
+  - Adjusts a target mid-week; needs to tell the therapist NOW.
+  - Falls back to WhatsApp because there is no in-app messaging.
+  - Reviews behavior sessions via screen-share or in person.
+TOUCHPOINTS: WhatsApp (external!) · phone calls · in-person
+THOUGHTS: "Clinical instructions live in WhatsApp. If a therapist
+loses their phone, my clinical decisions are gone."
+PAIN POINTS:
+  - Message/Attendance/Document models exist in the DB but have
+    NO UI — the single biggest gap for his role.
+  - No way to attach a comment to a specific target or session.
+OPPORTUNITIES:
+  - In-app messaging per student (therapist ↔ supervisor).
+  - Comments/notes pinned to targets and sessions.
+
+---------------------------------------------------------------------
+STAGE 6 — NOTE REVIEW & CO-SIGN (WEEKLY)     [EMOTION: 5 😐]
+---------------------------------------------------------------------
+ACTIONS:
+  - Finds notes to sign one by one: open session → read SOAP →
+    check data → Co-sign & Finalize → find next session manually.
+  - Edits therapist notes when drafts are weak (auto-SOAP helps).
+TOUCHPOINTS: session detail page (SOAP card, Co-sign & Finalize)
+THOUGHTS: "Signing is fine; FINDING what needs signing is the job."
+PAIN POINTS:
+  - No co-sign queue; no "notes awaiting me" counter on his
+    dashboard (Pending Notes shows the THERAPIST's debt, not his).
+  - Finalized notes are locked — a late correction requires
+    workarounds.
+OPPORTUNITIES:
+  - Co-sign queue with data beside the note + bulk sign.
+  - "Notes awaiting YOUR signature" dashboard card.
+
+=====================================================================
+EMOTION CURVE (for the line chart)
+  Stage 1: 8 (peak: assessments) → Stage 2: 7 → Stage 3: 5 →
+  Stage 4: 6 → Stage 5: 4 (LOWEST: WhatsApp dependency) →
+  Stage 6: 5
+BIGGEST LEAK: Stage 5 (messaging) and Stage 4 (no risk view).
+These two make his weekly loop manual; fixing them turns the
+platform from "data entry" into "clinical command center."

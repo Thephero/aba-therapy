@@ -1,0 +1,129 @@
+=====================================================================
+ CUSTOMER JOURNEY MAP — THERAPIST / RBT ("Sara")
+ Persona 3 of 4 · draw-ready format (one column per stage)
+=====================================================================
+
+HOW TO DRAW THIS
+---------------------------------------------------------------------
+- Horizontal axis = the 6 STAGES below (left → right).
+- Swimlanes per stage: ACTIONS, TOUCHPOINTS, THOUGHTS, EMOTION
+  (1–10), PAIN POINTS, OPPORTUNITIES.
+- Emotion line chart across stages. 😡=2 … 🤩=9.
+- This journey = ONE TYPICAL DAY (6 sessions), told start to end.
+
+JOURNEY SCOPE: "A day in Sara's life" — arrival to wrap-up.
+
+---------------------------------------------------------------------
+STAGE 1 — MORNING: LOGIN & PLAN MY DAY       [EMOTION: 6 🙂]
+---------------------------------------------------------------------
+ACTIONS:
+  - Logs in on her PHONE in the staff room (laptop is shared).
+  - Checks dashboard: today's sessions, Pending Notes card.
+  - Wants "what's next, where, with whom" — must open calendar.
+TOUCHPOINTS: login page · dashboard (MiniDashboard, Run a Session)
+THOUGHTS: "Okay, first kid in 10 minutes. Where's my day list?"
+PAIN POINTS:
+  - No "My Day" view: next session + room + student targets in
+    one glance. Calendar grid doesn't answer it on a phone.
+  - Generic "Invalid email or password" even when the SERVER is
+    down — she once wasted 20 minutes resetting a good password.
+OPPORTUNITIES:
+  - "My Day" screen (timeline: next up, room, student).
+  - Distinct error messages (server unreachable vs wrong creds).
+
+---------------------------------------------------------------------
+STAGE 2 — SESSION START                      [EMOTION: 7 😊]
+---------------------------------------------------------------------
+ACTIONS:
+  - Taps "Run a Session" → picks student → ticks modalities
+    (DTT + NET) → Start.
+  - Opens student page to see today's targets + behavior plan.
+TOUCHPOINTS: Start Session modal · session detail page
+THOUGHTS: "Good, the Run a Session button saves me digging."
+PAIN POINTS:
+  - Therapist view of the student shows everything the
+    supervisor sees — she scrolls/hunts for "today's targets."
+  - Phone layout: dropdowns and tiny hit areas are painful.
+OPPORTUNITIES:
+  - Therapist session-plan view pinned at top of student page
+    (targets, prompt hierarchy, behavior plan).
+
+---------------------------------------------------------------------
+STAGE 3 — DURING SESSION: DATA CAPTURE       [EMOTION: 3 😣 LOWEST]
+---------------------------------------------------------------------
+ACTIONS (repeats every few minutes, child waiting):
+  - Record Trial: open modal → program → target → outcome →
+    response → prompt level → save.
+  - Log Behavior: choose plan → (timer for DURATION type) → ABC
+    dropdowns → save.
+  - Record Mand: type → item → prompt → independence → save.
+TOUCHPOINTS: Record Trial / Log Behavior / Record Mand modals
+THOUGHTS: "Six taps per trial. The kid is waiting. I skip some
+trials and reconstruct later from memory — which is bad data."
+PAIN POINTS:
+  - Too many taps for routine events (the #1 daily pain).
+  - No quick-tally for mands (+1 spontaneous / +1 prompted).
+  - No offline/sync clarity: if wifi blips she doesn't know if
+    the trial saved.
+OPPORTUNITIES:
+  - Quick-trial mode: target chips always visible → tap target →
+    tap ✓/✗. Details optional after.
+  - Mand quick-tally buttons. Sticky "last target" pre-selection.
+  - Saved/syncing indicator; offline queue that syncs later.
+
+---------------------------------------------------------------------
+STAGE 4 — BETWEEN SESSIONS                   [EMOTION: 5 😐]
+---------------------------------------------------------------------
+ACTIONS:
+  - Squeezes in notes for the session just ended (or defers).
+  - Auto-Generate SOAP → edits a few lines → saves draft.
+TOUCHPOINTS: SOAP card · Auto-Generate · Pending Notes card
+THOUGHTS: "Auto-SOAP is a lifesaver — I fix, I don't transcribe."
+PAIN POINTS:
+  - If she defers, nothing reminds her until end of day.
+  - Supervisor unreachable in-app for questions ("he cried at
+    transition today — note or flag?") → WhatsApp.
+OPPORTUNITIES:
+  - Post-session 2-minute wrap prompt while memory is fresh.
+  - In-app flag/message to supervisor attached to the session.
+
+---------------------------------------------------------------------
+STAGE 5 — END OF SESSION                     [EMOTION: 6 🙂]
+---------------------------------------------------------------------
+ACTIONS:
+  - Taps End Session (data recorded right up to the end).
+  - Session shows COMPLETED; SOAP remains editable until
+    finalized by supervisor.
+TOUCHPOINTS: End Session button · session status
+THOUGHTS: "Editable-after-end is fair — I can fix a typo."
+PAIN POINTS:
+  - If she forgets to end a session, it stays IN_PROGRESS and
+    pollutes the stats (and her admin asks questions).
+OPPORTUNITIES:
+  - Gentle auto-reminder: "Session still running after X min —
+    end it?" / suspicious-duration flag.
+
+---------------------------------------------------------------------
+STAGE 6 — WRAP-UP & GO HOME                  [EMOTION: 4 😕]
+---------------------------------------------------------------------
+ACTIONS:
+  - Checks Pending Notes card → writes remaining notes with
+    auto-SOAP → hopes nothing else is owed.
+  - Closes laptop... which she barely used all day; phone was
+    the real device.
+TOUCHPOINTS: Pending Notes card · SOAP auto-generate
+THOUGHTS: "Paperwork didn't eat my evening today. But if the app
+worked properly on my phone, my whole day would be smoother."
+PAIN POINTS:
+  - The app is laptop-first; her actual working day is mobile.
+  - The mobile app (Expo) is a stub — login screen only.
+OPPORTUNITIES:
+  - Mobile-first session flow (responsive web or real app).
+  - "Wrap-up" checklist: today's sessions → notes → done.
+
+=====================================================================
+EMOTION CURVE (for the line chart)
+  Stage 1: 6 → Stage 2: 7 → Stage 3: 3 (CRASH: tap-heavy capture
+  with a child waiting) → Stage 4: 5 → Stage 5: 6 → Stage 6: 4
+BIGGEST LEAK: Stage 3. Every tap removed there lifts the whole
+curve. Second priority: Stage 1 (My Day view + honest errors).

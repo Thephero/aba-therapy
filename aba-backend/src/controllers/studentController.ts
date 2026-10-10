@@ -101,6 +101,37 @@ export async function createStudent(req: Request, res: Response, next: NextFunct
       return;
     }
 
+    // ─── Subscription limit enforcement ───
+    const subscription = await prisma.subscription.findUnique({ where: { centerId } });
+    if (subscription) {
+      // Expired trial counts as PAST_DUE even if no webhook has arrived yet.
+      const trialExpired =
+        subscription.status === 'TRIALING' &&
+        !!subscription.trialEndsAt &&
+        subscription.trialEndsAt.getTime() < Date.now();
+      const blockedStatus = trialExpired || subscription.status === 'PAST_DUE' || subscription.status === 'CANCELED';
+      const limitReached = subscription.activeStudentLimit != null;
+      if (limitReached) {
+        const activeStudents = await prisma.student.count({ where: { centerId, isActive: true } });
+        if (activeStudents >= subscription.activeStudentLimit) {
+          res.status(402).json({
+            error: `Your plan allows ${subscription.activeStudentLimit} active students. Upgrade your subscription to add more.`,
+            code: 'PLAN_LIMIT_REACHED',
+          });
+          return;
+        }
+      }
+      if (blockedStatus) {
+        res.status(402).json({
+          error: trialExpired
+            ? 'Your 14-day trial has ended. Subscribe to a plan to keep adding students.'
+            : 'Your subscription is not active. Please update billing to continue.',
+          code: 'SUBSCRIPTION_INACTIVE',
+        });
+        return;
+      }
+    }
+
     const student = await prisma.student.create({
       data: {
         centerId: centerId!,

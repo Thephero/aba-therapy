@@ -28,4 +28,25 @@ export const config = {
   encryption: {
     key: process.env.ENCRYPTION_KEY || 'dev-encryption-key-32chars!!',
   },
+
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY || '',
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+    // Price IDs for each tier/cycle (from Stripe Dashboard). Optional — if a
+    // price is missing the checkout route returns a clear error instead.
+    prices: {
+      BASIC: {
+        MONTHLY: process.env.STRIPE_PRICE_BASIC_MONTHLY || '',
+        ANNUAL: process.env.STRIPE_PRICE_BASIC_ANNUAL || '',
+      },
+      PRO: {
+        MONTHLY: process.env.STRIPE_PRICE_PRO_MONTHLY || '',
+        ANNUAL: process.env.STRIPE_PRICE_PRO_ANNUAL || '',
+      },
+      ENTERPRISE: {
+        MONTHLY: process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY || '',
+        ANNUAL: process.env.STRIPE_PRICE_ENTERPRISE_ANNUAL || '',
+      },
+    },
+  },
 } as const;

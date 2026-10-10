@@ -1,0 +1,212 @@
+=====================================================================
+ ABA THERAPY PLATFORM — STRIPE TEST MODE + LOCAL TESTING GUIDE
+ (Plain-text runbook — follow the steps in order)
+=====================================================================
+
+PART A — GET THE APP RUNNING LOCALLY
+PART B — STRIPE TEST MODE (TEST THE BILLING FLOW)
+PART C — TEST CARDS YOU CAN USE
+PART D — WHEN SOMETHING DOESN'T WORK
+PART E — GOING LIVE LATER (AFTER STRIPE APPROVES YOUR ACCOUNT)
+
+=====================================================================
+PART A — GET THE APP RUNNING LOCALLY
+=====================================================================
+
+A1. ONE-CLICK (EASIEST)
+-----------------------
+Double-click:  start-app.bat
+(Starts backend on http://localhost:3001 and web on http://localhost:3000
+ and opens the browser.)
+
+A2. MANUAL (2 TERMINALS)
+------------------------
+FIRST TIME ONLY — prepare the database:
+    cd aba-backend
+    npx prisma db push
+    npm run db:seed
+
+THEN EVERY TIME:
+    Terminal 1:
+        cd aba-backend
+        npm run dev              -> API on http://localhost:3001
+
+    Terminal 2:
+        cd aba-web
+        npm run dev              -> Web on http://localhost:3000
+
+Open in browser:  http://localhost:3000
+
+A3. DEMO LOGIN ACCOUNTS
+-----------------------
+    Admin       admin@aba-demo.com        admin123
+    Supervisor  supervisor@aba-demo.com   supervisor123
+    Therapist   therapist@aba-demo.com    therapist123
+    Parent      parent@aba-demo.com       parent123
+
+The Admin account is the one that sees the new "Billing" page.
+
+=====================================================================
+PART B — STRIPE TEST MODE (TEST THE BILLING FLOW)
+=====================================================================
+
+B1. GET YOUR TEST KEYS FROM STRIPE
+----------------------------------
+1. Go to https://dashboard.stripe.com
+2. Turn ON the "Test mode" toggle (top-right of the dashboard).
+   (Test mode works even while your account is Paused.)
+3. Developers -> API keys -> copy the "Secret key"
+   It looks like:  sk_test_...
+
+B2. CREATE THE 6 TEST PRICES
+----------------------------
+Stripe Dashboard -> Product catalog -> "Add product"
+Do this 3 times (each product gets 2 prices):
+
+    Product 1: "ABA Basic"
+        Price A: 199 AED  - Recurring - Monthly
+        Price B: 1990 AED - Recurring - Yearly
+
+    Product 2: "ABA Pro"
+        Price A: 449 AED  - Recurring - Monthly
+        Price B: 4490 AED - Recurring - Yearly
+
+    Product 3: "ABA Enterprise"
+        Price A: 899 AED  - Recurring - Monthly
+        Price B: 8990 AED - Recurring - Yearly
+
+After creating, open each product and copy every Price ID.
+They look like:  price_...
+You need 6 price IDs total.
+
+B3. CREATE THE TEST WEBHOOK (only needed for REMOTE testing on Render)
+----------------------------------------------------------------------
+1. Still in Test mode: Developers -> Webhooks -> "Add endpoint"
+2. Endpoint URL:
+   https://aba-therapy-backend-7l47.onrender.com/api/v1/webhooks/stripe
+3. Select these events:
+       checkout.session.completed
+       customer.subscription.updated
+       customer.subscription.deleted
+       invoice.payment_failed
+4. Click "Add endpoint" -> copy the "Signing secret"
+   It looks like:  whsec_...
+
+B4. PUT THE KEYS IN THE APP
+---------------------------
+CHOICE 1 — LOCAL testing (recommended first):
+    Open the file:  aba-backend/.env
+    Add these lines (paste YOUR values):
+
+        STRIPE_SECRET_KEY=sk_test_...
+        STRIPE_PRICE_BASIC_MONTHLY=price_...
+        STRIPE_PRICE_BASIC_ANNUAL=price_...
+        STRIPE_PRICE_PRO_MONTHLY=price_...
+        STRIPE_PRICE_PRO_ANNUAL=price_...
+        STRIPE_PRICE_ENTERPRISE_MONTHLY=price_...
+        STRIPE_PRICE_ENTERPRISE_ANNUAL=price_...
+
+    (No webhook secret needed locally IF you run Stripe CLI — see B5.)
+    Restart the backend after saving (Ctrl+C, then npm run dev again).
+
+CHOICE 2 — REMOTE testing on the live site:
+    Go to https://dashboard.render.com -> your backend service
+    -> Environment -> add the SAME variables as above, PLUS:
+
+        STRIPE_WEBHOOK_SECRET=whsec_...   (from step B3)
+
+    -> Save changes (this redeploys automatically).
+    Also push the new DB columns once:
+    Render -> Settings -> Build Command, change to:
+
+        npm ci --include=dev && npm run db:generate:prod && npm run db:push:prod && npm run build
+
+B5. LOCAL WEBHOOK FORWARDING (only for local testing)
+-----------------------------------------------------
+The Stripe CLI lets local webhooks work:
+
+1. Install:  https://github.com/stripe/stripe-cli/releases/latest
+   (Windows: download the .zip, unzip, use stripe.exe)
+2. Login:        stripe login
+3. Forward:      stripe listen --forward-to localhost:3001/api/v1/webhooks/stripe
+4. It prints:    whsec_...   ->  paste this into aba-backend/.env as:
+                 STRIPE_WEBHOOK_SECRET=whsec_...
+5. Keep that terminal OPEN while testing, then restart the backend.
+
+TIP: You can skip B5 for a first quick test — checkout + activation
+still works; webhook events (renewals/cancellations) just won't sync
+until you run it.
+
+B6. RUN THE TEST
+----------------
+1. Start the app (Part A) or use the live site.
+2. Login as Admin -> click "Billing" in the sidebar.
+3. Pick a plan (e.g. Basic, Monthly) -> "Subscribe".
+4. Stripe Checkout opens (test mode). Pay with a TEST CARD (Part C).
+5. You return to the Billing page -> plan shows "Active".
+6. "Manage billing" opens the Stripe Customer Portal
+   (change card, cancel, see invoices).
+
+=====================================================================
+PART C — TEST CARDS YOU CAN USE
+=====================================================================
+
+In Stripe TEST mode, these fake cards work (any future expiry,
+any 3-digit CVC, any name/ZIP):
+
+    4242 4242 4242 4242   -> Success (subscription activates)
+    4000 0000 0000 0341   -> Card declined
+    4000 0000 0000 9995   -> Insufficient funds
+    4000 0000 0000 3220   -> Requires 3D Secure (extra verification step)
+
+No real money moves in test mode.
+
+=====================================================================
+PART D — WHEN SOMETHING DOESN'T WORK
+=====================================================================
+
+- "Payments are not configured on the server"
+      -> STRIPE_SECRET_KEY is missing/empty in the .env (or on Render).
+         Restart the backend after saving .env.
+
+- "Stripe price for BASIC/MONTHLY is not configured"
+      -> One of the 6 STRIPE_PRICE_... variables is missing or empty.
+         Check spelling of the variable names.
+
+- Checkout opens but payment fails
+      -> Make sure you used a TEST card (Part C) and that Stripe
+         dashboard is in TEST mode (keys start with sk_test_).
+
+- Payment OK but Billing page still shows trial
+      -> Webhook not connected. Locally: run stripe listen (B5).
+         On Render: check STRIPE_WEBHOOK_SECRET + B3 endpoint.
+         Refresh the page after a few seconds.
+
+- Billing page not visible in sidebar
+      -> You must log in with the ADMIN account.
+
+- Local login gives 500 error
+      -> Prisma client mismatch. Run:  cd aba-backend && npx prisma generate
+         then RESTART the backend.
+
+=====================================================================
+PART E — GOING LIVE LATER (AFTER STRIPE APPROVES YOUR ACCOUNT)
+=====================================================================
+
+1. Stripe approves the paused verification tasks -> account unpauses.
+2. Turn OFF Test mode. Create the same 6 prices again in LIVE mode.
+3. Copy the LIVE secret key (sk_live_...) and the 6 LIVE price IDs.
+4. Update the same variables on Render with the live values
+   (sk_live_... / price_...).
+5. Add a NEW webhook endpoint for LIVE mode (same URL + events) and
+   copy its whsec_... into Render.
+6. Redeploy. Done — no code changes needed.
+
+NOTE: Your Stripe account is currently under the business name
+"Naturebylily". That name appears on customer invoices. If the ABA
+platform is a separate business, update Business details in Stripe
+or create a dedicated Stripe account for it later.
+
+=====================================================================
+Questions? See BILLING_PLAN.md (full plan) and DEPLOY.md (deployment).
+=====================================================================

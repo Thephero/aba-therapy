@@ -78,6 +78,7 @@ export default function SessionsPage() {
   const [scheduleForm, setScheduleForm] = useState({
     studentId: '', therapistId: '', supervisorId: '',
     sessionType: ['DTT'] as string[], scheduledFor: '', programIds: [] as string[], location: '',
+    repeatWeeks: 1,
   });
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -144,12 +145,15 @@ export default function SessionsPage() {
 
   const scheduleMutation = useMutation({
     mutationFn: async () => {
-      await api.post('/sessions/schedule', scheduleForm);
+      await api.post('/sessions/schedule', {
+        ...scheduleForm,
+        recurrence: scheduleForm.repeatWeeks > 1 ? { weeks: scheduleForm.repeatWeeks } : undefined,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       setShowScheduleModal(false);
-      setScheduleForm({ studentId: '', therapistId: '', supervisorId: '', sessionType: ['DTT'], scheduledFor: '', programIds: [], location: '' });
+      setScheduleForm({ studentId: '', therapistId: '', supervisorId: '', sessionType: ['DTT'], scheduledFor: '', programIds: [], location: '', repeatWeeks: 1 });
       showToast('Session scheduled', 'success');
     },
     onError: (err: any) => {
@@ -485,6 +489,23 @@ export default function SessionsPage() {
               onChange={(e) => setScheduleForm({ ...scheduleForm, location: e.target.value })}
               placeholder="e.g., Room 101, Home, etc."
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Repeat weekly</label>
+            <select
+              value={scheduleForm.repeatWeeks}
+              onChange={(e) => setScheduleForm({ ...scheduleForm, repeatWeeks: parseInt(e.target.value) })}
+              className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-colors"
+            >
+              <option value={1}>One-off (this date only)</option>
+              {[2, 4, 6, 8, 12, 16, 24].map((w) => (
+                <option key={w} value={w}>Every week for {w} weeks ({w} sessions)</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-400">
+              Creates {scheduleForm.repeatWeeks > 1 ? `${scheduleForm.repeatWeeks} weekly sessions at the same day & time` : 'a single session at the chosen day & time'}.
+            </p>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">

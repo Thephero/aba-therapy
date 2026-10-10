@@ -13,7 +13,7 @@ import {
   CheckCircle2, XCircle, AlertTriangle, Plus, Play, Square,
   BookOpen, Save, FileText, Sparkles, Users, MessageCircle, Timer, Pause,
 } from 'lucide-react';
-import { formatDateTime, formatStatus } from '@/lib/utils';
+import { formatDateTime, formatStatus, cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
@@ -144,6 +144,9 @@ export default function SessionDetailPage() {
     promptLevelUsed: '',
     notes: '',
   });
+
+  // Quick-trial bar: remember the last target chip picked (Tier 3.11)
+  const [quickTargetId, setQuickTargetId] = useState<string | null>(null);
 
   const addTrialMutation = useMutation({
     mutationFn: async (form: typeof trialForm) => {
@@ -684,6 +687,106 @@ export default function SessionDetailPage() {
           )}
         </div>
       </div>
+
+      {/* ── Quick-Trial Bar (2-tap capture, Tier 3.11) ── */}
+      {data.status === 'IN_PROGRESS' && !isParent && allTargets.length > 0 && (
+        <div className="sticky top-2 z-30 rounded-xl border border-indigo-200 bg-indigo-50/95 p-3 shadow-sm backdrop-blur">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-indigo-500">
+              Quick record
+            </span>
+            {allTargets.map((t: any) => (
+              <span
+                key={t.id}
+                className={cn(
+                  'shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                  quickTargetId === t.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100'
+                )}
+              >
+                <button onClick={() => setQuickTargetId(t.id)}>{t.skill}</button>
+              </span>
+            ))}
+            <span className="ml-auto shrink-0 flex gap-1.5">
+              <button
+                onClick={async () => {
+                  const targetId = quickTargetId || allTargets[0]?.id;
+                  if (!targetId) return;
+                  try {
+                    await api.post(`/sessions/${id}/trials`, {
+                      targetId,
+                      trialNumber: lastTrialNumber + 1,
+                      correct: true,
+                    });
+                    queryClient.invalidateQueries({ queryKey: ['session', id] });
+                    showToast('✓ recorded', 'success');
+                  } catch (e: any) {
+                    showToast(e?.response?.data?.error || 'Failed', 'error');
+                  }
+                }}
+                className="rounded-full bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+              >
+                ✓ Correct
+              </button>
+              <button
+                onClick={async () => {
+                  const targetId = quickTargetId || allTargets[0]?.id;
+                  if (!targetId) return;
+                  try {
+                    await api.post(`/sessions/${id}/trials`, {
+                      targetId,
+                      trialNumber: lastTrialNumber + 1,
+                      correct: false,
+                    });
+                    queryClient.invalidateQueries({ queryKey: ['session', id] });
+                    showToast('✗ recorded', 'success');
+                  } catch (e: any) {
+                    showToast(e?.response?.data?.error || 'Failed', 'error');
+                  }
+                }}
+                className="rounded-full bg-red-500 px-4 py-1.5 text-xs font-bold text-white hover:bg-red-600"
+              >
+                ✗ Incorrect
+              </button>
+            </span>
+          </div>
+          {/* Mand quick-tally */}
+          <div className="mt-2 flex items-center gap-1.5 border-t border-indigo-100 pt-2">
+            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-indigo-500">
+              Mand tally
+            </span>
+            <button
+              onClick={async () => {
+                try {
+                  await api.post(`/sessions/${id}/mands`, { mandType: 'SPONTANEOUS', independent: true });
+                  queryClient.invalidateQueries({ queryKey: ['session', id] });
+                  showToast('+1 asked on their own', 'success');
+                } catch (e: any) {
+                  showToast(e?.response?.data?.error || 'Failed', 'error');
+                }
+              }}
+              className="rounded-full bg-white px-3 py-1 text-xs font-medium text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100"
+            >
+              +1 asked on their own
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  await api.post(`/sessions/${id}/mands`, { mandType: 'PROMPTED', independent: false });
+                  queryClient.invalidateQueries({ queryKey: ['session', id] });
+                  showToast('+1 asked with help', 'success');
+                } catch (e: any) {
+                  showToast(e?.response?.data?.error || 'Failed', 'error');
+                }
+              }}
+              className="rounded-full bg-white px-3 py-1 text-xs font-medium text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100"
+            >
+              +1 asked with help
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Recording Action Buttons */}
       {data.status === 'IN_PROGRESS' && !isParent && (

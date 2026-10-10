@@ -1,29 +1,36 @@
 =====================================================================
  WHAT'S NEXT — START HERE
  (Read this first when you come back to the project)
- Last updated: Oct 3, 2026
+ Last updated: Oct 10, 2026
 =====================================================================
 
 CURRENT STATE — WHAT IS DONE
 =====================================================================
 
-Subscription billing with Stripe is FULLY BUILT (code + UI + docs)
-but NOT yet committed, NOT pushed, and NOT configured on Render.
+ALL FEEDBACK-PASS WORK IS COMMITTED & PUSHED (as of Oct 10, 2026).
+GitHub: github.com/Thephero/aba-therapy, branch main.
+Commits: fb7ca2a (15 features + Stripe billing), b29d9af (rebrand +
+Quick Stats + student IDs), deb78e5 (toast fix).
 
-Done in code (all typechecks pass):
-  - Subscription model extended: billingCycle, trialEndsAt,
-    currentPeriodEnd (both prisma schemas; SQLite pushed locally,
-    Postgres/Neon NOT pushed yet)
-  - Backend: services/stripe.ts, billingController.ts, routes/billing.ts
-      GET  /api/v1/billing/status        (admin)
-      POST /api/v1/billing/checkout-session (admin)
-      POST /api/v1/billing/portal-session   (admin)
-      POST /api/v1/webhooks/stripe       (public, signature-verified,
-                                          raw body kept before express.json)
-  - createStudent enforces tier cap + blocks expired trial / PAST_DUE
-  - New registrations start a 14-day TRIALING subscription
-  - Frontend: /dashboard/billing page (admin-only), sidebar entry
-  - Demo center stays grandfathered ACTIVE/PRO (seed unchanged)
+BUILT & PUSHED IN THIS PASS:                                          
+  - 15 feedback items (Tiers 0-3): password reset, messaging,
+    attendance, documents, Lookout, co-sign, parent progress,
+    quick-trial, My Day, recurring sessions, goal->target,
+    upgrade banner, honest login errors, glossary
+  - Stripe subscription billing (tiers, 14-day trial, enforcement,
+    billing page, webhook)
+  - REBRAND: app title, login heading, sidebar logo = AZM Therapy
+  - Quick Stats in sidebar now starts MINIMISED (collapsed)
+  - STUDENT ID: new `code` field on Student — auto-generated
+    human-readable ID like "AZM-0001", unique per center
+    (@@unique([centerId, code])), created in a transaction so
+    concurrent creates can't collide. Shown in the create toast,
+    student list cards, and student detail page.
+    PURPOSE: stable key for the future LLM knowledge base.
+
+VERIFIED: backend tsc clean, web tsc clean, next build passes,
+local SQLite schema pushed, code generation tested live
+(AZM-0001 -> AZM-0002), test data cleaned up.
 
 Pricing (starter, change anytime in Stripe Dashboard only):
   Basic 199 AED/mo (1990/yr)  - 10 students
@@ -31,43 +38,77 @@ Pricing (starter, change anytime in Stripe Dashboard only):
   Ent.   899 AED/mo (8990/yr) - 1000 students
   Annual = x10 (2 months free). Trial = 14 days (confirmed).
 
-Docs created/updated:
-  BILLING_PLAN.md            (plan -> marked IMPLEMENTED, decisions logged)
-  STRIPE_TEST_MODE_GUIDE.txt (step-by-step test-mode + local testing)
-  DEPLOY.md                  (added Stripe env vars + webhook Step 6)
-  PROJECT_PLAN.md            (feature table + Session Log row)
-  what is next.txt           (THIS FILE)
-
 =====================================================================
-BLOCKER / IMPORTANT CONTEXT
+BLOCKERS / IMPORTANT CONTEXT
 =====================================================================
 
-Stripe account (Naturebylily) is PAUSED since Nov 30, 2024:
-  4 verification tasks "In review": passport, visa, ID, business
-  license for the account representative. 10 months stalled —
-  contact Stripe support via dashboard chat to un-stick.
-  TEST MODE still works while paused.
+1. STRIPE ACCOUNT: account (Naturebylily) is PAUSED since
+   Nov 30, 2024 — 4 verification tasks "In review": passport, vis,
+   ID, business license. 10 months stalled — contact Stripe
+   support via dashboard chat to un-stick. TEST MODE still works.
+   Note: business name "Naturebylily" appears on customer invoices.
 
-Note: account business name is "Naturebylily" — appears on customer
-invoices. Update business details or make a dedicated account later.
+2. NEON/POSTGRES SCHEMA IS BEHIND THE CODE: the live Neon DB does not
+   yet have (a) the PasswordResetToken table or (b) the new
+   Student.code column. Student creation WILL ERROR on the live app
+   until you run thepush (Step 1 below). This is the #1 deploy blocker.
+
+3. VERCEL URL STILL SAYS "aba-therapy": rename the Vercel project to
+   get a nicer URL (Step 2 below). CORS_ORIGIN on Render must be
+   updated right after.
+
+4. CODEBUFF FOOTER ON COMMITS: every commit has a footer
+   "Generated with Codebuff / Co-Authored-By: Codebuff
+   <noreply@codebuff.com>". It is NOT in the project code — it lives
+   only in git commit messages. It is standard AI-assistant
+   attribution added by the Codebuff/Freebuff agent when it commits.
+   T&C (from freebuff.com Terms/Privacy, updated 09/25/2026):
+   - Freebuff/Codebuff is ad-supported: prompts, messages, code and
+     repo data you send may be analyzed to select/deliver/measure ads;
+     advertisers never receive your prompts, code or files.
+   - No training on your data unless the selected model is labeled
+     "may use data for AI training"; GLM 5.3 Flash (this session's
+     model) carries no training label.
+   - You own the code you get out; the footer is attribution only,
+     not a license claim.
+   - You can remove/omit the footer in future commits if you want
+     (edit the commit message before pushing); already-pushed
+     commits keep history as-is.
 
 =====================================================================
 NEXT STEPS — IN ORDER (START FROM STEP 1)
 =====================================================================
 
-STEP 1 — COMMIT & PUSH (nothing is committed yet!)
-  Say "push" (or run):
-      git add -A
-      git commit -m "Add Stripe subscription billing (tiers, trial, enforcement, billing page)"
-      git push origin main
-  -> Render + Vercel auto-deploy (~3 min).
-  Files included: all billing code + USER_MANUAL.md update +
-  "MVP assement skill.txt" (was untracked).
-
-STEP 2 — PUSH DB SCHEMA TO NEON (one time)
+STEP 1 — PUSH SCHEMA TO NEON (CRITICAL, do before anything breaks)
   Render -> backend service -> Settings -> Build Command, change to:
       npm ci --include=dev && npm run db:generate:prod && npm run db:push:prod && npm run build
-  -> Manual Deploy. (Adds new Subscription columns to Postgres.)
+  -> Manual Deploy.
+  (Adds Subscription billing columns, PasswordResetToken table,
+   and Student.code column to the live Postgres DB.)
+
+STEP 2 — RENAME VERCEL PROJECT (optional, for the URL you asked about)
+  a. vercel.com -> your project -> Settings -> General ->
+     "Vercel Project Name" -> change to e.g. azm-therapy -> Save.
+  b. New URL appears: https://azm-therapy.vercel.app
+     (the old aba-therapy-eight.vercel.app keeps working/redirecting)
+  c. Render -> backend service -> Environment -> update
+     CORS_ORIGIN  =  https://azm-therapy.vercel.app
+  d. Render -> Manual Deploy (or it redeploys automatically).
+  ONLY AFTER (c) will the new URL talk to the backend without CORS
+  errors. Test: open the new URL, login, create a student ->
+  ID AZM-0004 should appear.
+
+STEP 3 — STRIPE TEST MODE SETUP (see STRIPE_TEST_MODE_GUIDE.txt)
+  a. Dashboard -> Test mode ON -> copy sk_test_... key
+  b. Product catalog: create 3 products x 2 recurring AED prices
+     (amounts above) -> copy 6 price_... IDs
+  c. Developers -> Webhooks -> Add endpoint:
+     https://aba-therapy-backend-7l47.onrender.com/api/v1/webhooks/stripe
+     events: checkout.session.completed,
+             customer.subscription.updated,
+             customer.subscription.deleted,
+             invoice.payment_failed
+     -> copy whsec_...
 
 STEP 3 — STRIPE TEST MODE SETUP (see STRIPE_TEST_MODE_GUIDE.txt)
   a. Dashboard -> Test mode ON -> copy sk_test_... key
@@ -104,24 +145,44 @@ STEP 6 — AFTER STRIPE APPROVES (un-pauses)
   live webhook whsec_...). No code changes.
 
 =====================================================================
-BACKLOG — NOT DONE YET (from earlier sessions)
+BACKLOG — NOT DONE YET
 =====================================================================
 
-  1. UI for Messages / Attendance / Documents
-     (DB models exist — Message, AttendanceRecord, DocumentUpload —
-     but no backend routes or frontend pages yet)
-  2. Improve login error messaging (distinguish "server unreachable"
-     vs "invalid credentials")
-  3. Verify Reports & Analytics counts reflect status correctly
-  4. Consider making GitHub repo private (demo creds are public)
-  5. Real mobile app (aba-mobile is a stub)
-  6. Automated API isolation tests (no test runner in repo yet)
-  7. Optional: in-app card update page instead of Stripe Portal only
+  1. Wire a real email provider into sendPasswordResetEmail (Resend /
+     SendGrid) so reset links reach inboxes; right now it prints to
+     server logs. (Picker: run freebuff Gravity search when ready.)
+  2. Verify Reports & Analytics counts reflect status correctly
+  3. Consider making GitHub repo private (demo creds are public)
+  4. Real mobile app (aba-mobile is a stub)
+  5. Automated API isolation tests (no test runner in repo yet)
+  6. Optional: in-app card update page instead of Stripe Portal only
+  7. LLM KNOWLEDGE BASE (new, per Oct 10 request): student `code`
+     (AZM-XXXX) is now the stable per-student key — build the
+     knowledge-base wiring so every session/trial/note/behaviour row
+     is exported/queried by code, enabling an LLM to answer
+     "show me Sara’s progress" style questions.
+  8. Enrich user-facing docs: USER_MANUAL.md should mention AZM
+     rebrand + new pages (Messages, Attendance, Documents, Lookout,
+     My Day, forgot/reset password).
+
+Note: The pre-Oct-10 backlog items “UI for Messages / Attendance /
+Documents” and “Improve login error messaging” are DONE in this
+pass (see CURRENT STATE).
 
 =====================================================================
 KEY FILES (cheat sheet)
 =====================================================================
 
+  Student ID generator .... aba-backend/src/controllers/studentController.ts
+    (search "generateStudentCode")
+  Student code schema ..... both prisma/schema.prisma &
+                            prisma/schema.postgres.prisma
+                            (search "code          String?")
+  Brand strings (AZM) ..... aba-web/src/app/layout.tsx (title),
+                            src/app/login/page.tsx (heading),
+                            src/components/Sidebar.tsx (logo tile)
+  Quick Stats collapsed ... src/components/Sidebar.tsx
+                            (search "statsOpen = useState(false)")
   Backend billing ......... aba-backend/src/services/stripe.ts
   Billing routes .......... aba-backend/src/routes/billing.ts
   Billing controller ...... aba-backend/src/controllers/billingController.ts

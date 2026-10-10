@@ -43,7 +43,7 @@ BLOCKERS / IMPORTANT CONTEXT
 =====================================================================
 
 1. STRIPE ACCOUNT: account (Naturebylily) is PAUSED since
-   Nov 30, 2024 — 4 verification tasks "In review": passport, vis,
+   Nov 30, 2024 — 4 verification tasks "In review": passport, visa,
    ID, business license. 10 months stalled — contact Stripe
    support via dashboard chat to un-stick. TEST MODE still works.
    Note: business name "Naturebylily" appears on customer invoices.
@@ -51,7 +51,7 @@ BLOCKERS / IMPORTANT CONTEXT
 2. NEON/POSTGRES SCHEMA IS BEHIND THE CODE: the live Neon DB does not
    yet have (a) the PasswordResetToken table or (b) the new
    Student.code column. Student creation WILL ERROR on the live app
-   until you run thepush (Step 1 below). This is the #1 deploy blocker.
+   until you run the push (Step 1 below). This is the #1 deploy blocker.
 
 3. VERCEL URL STILL SAYS "aba-therapy": rename the Vercel project to
    get a nicer URL (Step 2 below). CORS_ORIGIN on Render must be

@@ -91,7 +91,10 @@ export async function postPortalSession(req: Request, res: Response, next: NextF
     });
     res.json({ url });
   } catch (error: any) {
-    if (error?.message?.includes('No Stripe customer')) {
+    if (
+      error?.message?.includes('No Stripe customer') ||
+      error?.message?.includes('not configured')
+    ) {
       res.status(400).json({ error: error.message });
       return;
     }

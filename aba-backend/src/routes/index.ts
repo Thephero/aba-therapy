@@ -11,6 +11,7 @@ import * as programController from '../controllers/programController';
 import * as sessionController from '../controllers/sessionController';
 import * as behaviorPlanController from '../controllers/behaviorPlanController';
 import * as assessmentController from '../controllers/assessmentController';
+import * as platformController from '../controllers/platformController';
 
 import sessionRulesRoutes from './sessionRules';
 
@@ -143,6 +144,12 @@ router.get('/students/:studentId/skill-progress', authenticate, progressControll
 // ─── Supervisor lookout (risk overview + co-sign queue) ──────────────────
 import * as supervisorController from '../controllers/supervisorController';
 router.get('/supervisor/overview', authenticate, supervisorController.getSupervisorOverview);
+
+// ─── Platform Admin (owner pricing dashboard) ─────────────────────────────
+// GET is available to any authenticated staff (Billing page renders from it);
+// PUT is restricted to the platform owner (PLATFORM_ADMIN).
+router.get('/platform/pricing', authenticate, platformController.getPricing);
+router.put('/platform/pricing', authenticate, authorize('PLATFORM_ADMIN'), platformController.updatePricing);
 
 // ─── Rule Engine & SOAP Notes (sessionRules) ────────────────────────────────
 router.use(sessionRulesRoutes);

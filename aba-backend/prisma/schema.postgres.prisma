@@ -40,6 +40,7 @@ model Subscription {
   billingCycle        String?                           // MONTHLY | ANNUAL
   trialEndsAt         DateTime?
   activeStudentLimit  Int      @default(10)
+  extraStudents       Int      @default(0)        // purchased add-on students on top of the plan's included count
   stripeCustomerId    String?
   stripeSubscriptionId String?
   currentPeriodEnd    DateTime?
@@ -47,6 +48,15 @@ model Subscription {
   endDate             DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+// Platform-wide owner-edited configuration (WordPress-style settings).
+// value is a JSON-serialized payload validated in the application layer.
+model PlatformSetting {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model User {

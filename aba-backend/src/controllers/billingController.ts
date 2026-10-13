@@ -8,24 +8,25 @@ import {
   createCheckoutSession,
   createPortalSession,
   handleStripeEvent,
-  PLANS,
-  BillingCycle,
-  PlanId,
-  PLAN_LIMITS,
 } from '../services/stripe';
+import { getPricingConfig } from '../services/platformSettings';
 import { config } from '../config';
 
 // ─── GET /billing/status (CENTER_ADMIN) ─────────────────────────────────────
 export async function getBillingStatusHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const status = await getBillingStatus(req.user!.centerId);
-    res.json({
-      ...status,
-      plans: PLANS.map((plan) => ({
-        id: plan,
-        studentLimit: PLAN_LIMITS[plan],
-      })),
-    });
+    res.json(status);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Public-shape pricing endpoint used by the Billing page of any admin account.
+export async function getPricingHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const pricing = await getPricingConfig();
+    res.json({ pricing, stripeConfigured: isStripeConfigured() });
   } catch (error) {
     next(error);
   }
@@ -34,14 +35,20 @@ export async function getBillingStatusHandler(req: Request, res: Response, next:
 // ─── POST /billing/checkout-session (CENTER_ADMIN) ──────────────────────────
 export async function postCheckoutSession(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { plan, cycle } = req.body as { plan?: string; cycle?: string };
+    const body = req.body as {
+      itemKey?: string;
+      quantity?: number;
+      cycle?: string;
+      plan?: string; // legacy key from the pre-platform tier plans — accepted for compat
+      seats?: number;
+    };
 
-    if (!PLANS.includes(plan as PlanId)) {
-      res.status(400).json({ error: 'Invalid plan. Choose BASIC, PRO, or ENTERPRISE.' });
-      return;
-    }
-    if (cycle !== 'MONTHLY' && cycle !== 'ANNUAL') {
-      res.status(400).json({ error: 'Invalid cycle. Choose MONTHLY or ANNUAL.' });
+    const itemKey = body.itemKey || body.plan || '';
+    const quantity = body.quantity ?? body.seats;
+    const cycle = body.cycle;
+
+    if (!itemKey || typeof itemKey !== 'string' || itemKey.length > 40) {
+      res.status(400).json({ error: 'Missing or invalid itemKey.' });
       return;
     }
 
@@ -53,13 +60,20 @@ export async function postCheckoutSession(req: Request, res: Response, next: Nex
     const url = await createCheckoutSession({
       centerId: req.user!.centerId,
       adminEmail: admin?.email || '',
-      plan: plan as PlanId,
-      cycle: cycle as BillingCycle,
+      itemKey,
+      quantity: quantity != null && Number.isFinite(Number(quantity)) ? Number(quantity) : undefined,
+      cycle: cycle === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY',
     });
 
     res.json({ url });
   } catch (error: any) {
-    if (error?.message?.includes('not configured') || error?.message?.includes('STRIPE_PRICE')) {
+    if (
+      error?.message?.includes('not configured') ||
+      error?.message?.includes('not enabled') ||
+      error?.message?.includes('Unknown checkout') ||
+      error?.message?.includes('disabled') ||
+      error?.message?.includes('price')
+    ) {
       res.status(400).json({ error: error.message });
       return;
     }

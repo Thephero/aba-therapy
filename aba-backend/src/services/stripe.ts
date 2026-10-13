@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { prisma } from '../utils/prisma';
 import { config } from '../config';
+import { getPricingConfig, savePricingConfig, itemByKey, PricingConfig, platformBrand, effectiveStudentLimit, AddOnItem } from './platformSettings';
 
 export const PLANS = ['BASIC', 'PRO', 'ENTERPRISE'] as const;
 export type PlanId = (typeof PLANS)[number];
@@ -56,12 +57,114 @@ async function getSubscriptionByCenterId(centerId: string) {
   return prisma.subscription.findUnique({ where: { centerId } });
 }
 
-// ─── Public API ─────────────────────────────────────────────────────────────
+// ─── Stripe price management (platform pricing dashboard) ──────────────────
+
+/**
+ * Returns the Stripe Price id for an item, creating the Price (and the backing
+ * Product) on demand. Stripe prices are immutable — editing a price in the
+ * platform dashboard creates a new Price and checkout switches over.
+ */
+export async function ensurePriceForItem(
+  item: { key: string; label: string; price: number; recurring: boolean; stripePriceId: string },
+  currency: string,
+  cycle: BillingCycle = 'MONTHLY'
+): Promise<string | null> {
+  if (!stripe) return null;
+
+  if (item.stripePriceId) {
+    try {
+      const existing = await stripe.prices.retrieve(item.stripePriceId);
+      if (existing && existing.active) return existing.id;
+    } catch {
+      // stale id → recreate below
+    }
+  }
+
+  // Find or create the backing Product (one per item, matched via metadata).
+  let productId: string | undefined;
+  const products = await stripe.products.list({ active: true, limit: 100 });
+  const found = products.data.find((p) => p.metadata?.itemKey === item.key);
+  if (found) {
+    productId = found.id;
+  } else {
+    const product = await stripe.products.create({
+      name: item.label,
+      metadata: { itemKey: item.key },
+    });
+    productId = product.id;
+  }
+
+  const price = await stripe.prices.create({
+    currency: currency.toLowerCase(),
+    unit_amount: Math.round(item.price * 100),
+    product: productId,
+    recurring: item.recurring ? { interval: cycle === 'ANNUAL' ? 'year' : 'month' } : undefined,
+    metadata: { itemKey: item.key },
+  });
+  return price.id;
+}
+
+/**
+ * Base-subscription price: creates the recurring price on demand and persists
+ * the price id in the platform pricing config. Returns the updated config too.
+ */
+export async function getOrCreateBasePrice(
+  pricing: PricingConfig,
+  cycle: BillingCycle
+): Promise<{ priceId: string; config: PricingConfig }> {
+  const field = cycle === 'ANNUAL' ? 'baseStripePriceIdAnnual' : 'baseStripePriceId';
+  const existingId = pricing[field];
+  if (existingId && stripe) {
+    try {
+      const existing = await stripe.prices.retrieve(existingId);
+      if (existing && existing.active) return { priceId: existing.id, config: pricing };
+    } catch {
+      // stale id → recreate below
+    }
+  }
+  const amount = cycle === 'ANNUAL' ? pricing.annualPrice : pricing.basePrice;
+  if (amount == null) throw new Error('Base subscription price is not configured.');
+  const priceId = await ensurePriceForItem(
+    {
+      key: 'BASE_SUBSCRIPTION',
+      label: `${platformBrand()} subscription`,
+      price: amount,
+      recurring: true,
+      stripePriceId: pricing[field],
+    },
+    pricing.currency,
+    cycle
+  );
+  if (!priceId) throw new Error('Stripe price could not be created.');
+  const updated = { ...pricing, [field]: priceId };
+  await savePricingConfig(updated);
+  return { priceId, config: updated };
+}
+
+/** Re-run Stripe price creation for every enabled item (after a dashboard save). */
+export async function syncStripePrices(pricing: PricingConfig): Promise<PricingConfig> {
+  if (!stripe) return pricing;
+  const next = { ...pricing, items: pricing.items.map((i) => ({ ...i })) };
+  for (const item of next.items) {
+    if (!item.enabled) continue;
+    const id = await ensurePriceForItem(item, next.currency);
+    if (id) item.stripePriceId = id;
+  }
+  await getOrCreateBasePrice(next, 'MONTHLY');
+  if (next.annualEnabled && next.annualPrice != null) {
+    await getOrCreateBasePrice(next, 'ANNUAL');
+  }
+  await savePricingConfig(next);
+  return next;
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────
 
 export async function getBillingStatus(centerId: string) {
   const sub = await getSubscriptionByCenterId(centerId);
+  const pricing = await getPricingConfig();
   if (!sub) {
-    return { configured: isStripeConfigured(), plan: null, subscription: null };
+    return { configured: isStripeConfigured(), plan: null, subscription: null, pricing };
   }
 
   const activeStudents = await prisma.student.count({
@@ -90,7 +193,9 @@ export async function getBillingStatus(centerId: string) {
       status: sub.status,
       effectiveStatus,
       billingCycle: sub.billingCycle,
-      studentLimit: sub.activeStudentLimit,
+      studentLimit: effectiveStudentLimit(pricing.includedStudents, sub.extraStudents),
+      includedStudents: pricing.includedStudents,
+      extraStudents: sub.extraStudents,
       activeStudents,
       currentPeriodEnd: sub.currentPeriodEnd,
       trialEndsAt: sub.trialEndsAt,
@@ -98,6 +203,7 @@ export async function getBillingStatus(centerId: string) {
       amount: sub.currentAmount,
       currency: sub.currency,
     },
+    pricing,
   };
 }
 
@@ -105,8 +211,10 @@ export async function createCheckoutSession(params: {
   centerId: string;
   centerName?: string;
   adminEmail: string;
-  plan: PlanId;
-  cycle: BillingCycle;
+  // BASE_SUBSCRIPTION or one of the platform add-on item keys
+  itemKey: string;
+  quantity?: number; // EXTRA_STUDENT seats
+  cycle?: BillingCycle; // BASE_SUBSCRIPTION only
 }): Promise<string> {
   if (!stripe) {
     throw new Error('Stripe is not configured. Set STRIPE_SECRET_KEY.');
@@ -130,14 +238,52 @@ export async function createCheckoutSession(params: {
     });
   }
 
+  const pricing = await getPricingConfig();
+  const cycle: BillingCycle = params.cycle === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY';
+  let mode: 'subscription' | 'payment' = 'subscription';
+  let price: string | null = null;
+  let quantity = Math.max(1, Math.min(1000, Math.floor(params.quantity || 1)));
+  const metadata: Record<string, string> = {
+    centerId: params.centerId,
+    itemKey: params.itemKey,
+  };
+
+  if (params.itemKey === 'BASE_SUBSCRIPTION') {
+    if (cycle === 'ANNUAL' && (!pricing.annualEnabled || !pricing.annualPrice)) {
+      throw new Error('Annual billing is not enabled. Enable it in the platform pricing dashboard.');
+    }
+    const basePriceResult = await getOrCreateBasePrice(pricing, cycle);
+    price = basePriceResult.priceId;
+    metadata.cycle = cycle;
+  } else {
+    // Add-on items — recurring checkouts are drawn into the sub as packs;
+    // one-time items (e.g. a report) are single payments.
+    const item = itemByKey(pricing, params.itemKey);
+    if (!item) {
+      throw new Error(`Unknown checkout item "${params.itemKey}".`); // eslint-disable-line
+    }
+    if (!item.enabled) {
+      throw new Error('This add-on is currently disabled.');
+    }
+    mode = item.recurring ? 'subscription' : 'payment';
+    if (!item.recurring) quantity = 1;
+    const priceId = await ensurePriceForItem(item, pricing.currency, cycle);
+    if (!priceId) throw new Error('Stripe price could not be created.');
+    price = priceId;
+  }
+  if (!price) throw new Error('Checkout item could not be priced.');
+
   const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
+    mode,
     customer: customerId,
-    line_items: [{ price: priceIdFor(params.plan, params.cycle), quantity: 1 }],
-    subscription_data: {
-      metadata: { centerId: params.centerId, plan: params.plan, cycle: params.cycle },
-    },
-    metadata: { centerId: params.centerId, plan: params.plan, cycle: params.cycle },
+    line_items: [{ price, quantity }],
+    subscription_data:
+      mode === 'subscription'
+        ? {
+            metadata: { ...metadata, cycle },
+          }
+        : undefined,
+    metadata: { ...metadata, cycle },
     success_url: `${process.env.CORS_ORIGIN?.split(',')[0] || 'http://localhost:3000'}/dashboard/billing?checkout=success`,
     cancel_url: `${process.env.CORS_ORIGIN?.split(',')[0] || 'http://localhost:3000'}/dashboard/billing?checkout=cancelled`,
   });
@@ -168,20 +314,47 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
     case 'checkout.session.completed': {
       const session = event.data.object;
       const centerId = session.metadata?.centerId;
-      const plan = (session.metadata?.plan as PlanId) || null;
+      const itemKey = session.metadata?.itemKey || null;
       const cycle = (session.metadata?.cycle as BillingCycle) || null;
       if (!centerId) return;
 
+      const pricing = await getPricingConfig();
+
+      // Extra-student packs add seats on top of the plan's included count.
+      if (itemKey === 'EXTRA_STUDENT') {
+        const full = await stripe!.checkout.sessions.retrieve(session.id, {
+          expand: ['line_items'],
+        });
+        const seats = full.line_items?.data?.[0]?.quantity || 1;
+        const sub = await prisma.subscription.findFirst({ where: { centerId } });
+        if (sub) {
+          await prisma.subscription.update({
+            where: { id: sub.id },
+            data: {
+              extraStudents: sub.extraStudents + seats,
+              plan: sub.plan === 'TRIAL' ? 'BASE' : sub.plan,
+              status: session.subscription ? 'ACTIVE' : sub.status,
+            },
+          });
+        }
+        break;
+      }
+
+      // One-off purchases (e.g. a report) don't change subscription state yet.
+      if (itemKey && itemKey !== 'BASE_SUBSCRIPTION') break;
+
+      // Base subscription checkout (mode: subscription).
       await prisma.subscription.updateMany({
         where: { centerId },
         data: {
-          plan: plan || 'BASIC',
+          plan: 'BASE',
           status: 'ACTIVE',
           billingCycle: cycle,
           stripeCustomerId: (session.customer as string) || undefined,
           stripeSubscriptionId: (session.subscription as string) || undefined,
-          currentAmount: plan ? PLAN_PRICES_AED[plan][cycle || 'MONTHLY'] : 0,
-          activeStudentLimit: plan ? PLAN_LIMITS[plan] : 10,
+          currentAmount: cycle === 'ANNUAL' ? pricing.annualPrice ?? pricing.basePrice : pricing.basePrice,
+          currency: pricing.currency,
+          activeStudentLimit: pricing.includedStudents,
           endDate: null,
         },
       });
@@ -196,11 +369,18 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
       });
       if (!sub) return;
 
-      // Deleted (canceled at period end) → downgrade.
+      // Deleted (canceled at period end) → entitlements stop accruing.
       if (event.type === 'customer.subscription.deleted' || subscription.status === 'canceled') {
+        const pricingOnCancel = await getPricingConfig();
         await prisma.subscription.update({
           where: { id: sub.id },
-          data: { status: 'CANCELED', plan: 'BASIC', activeStudentLimit: PLAN_LIMITS.BASIC, endDate: new Date() },
+          data: {
+            status: 'CANCELED',
+            plan: 'BASE',
+            activeStudentLimit: pricingOnCancel.includedStudents,
+            extraStudents: 0,
+            endDate: new Date(),
+          },
         });
         break;
       }

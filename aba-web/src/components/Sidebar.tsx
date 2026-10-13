@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
+import { BRAND, BRAND_FULL } from '@/lib/brand';
 import { useAuth } from '@/contexts/AuthContext';
 import { TrendIndicator } from '@/components/ui/trend-indicator';
 import { Sparkline } from '@/components/ui/sparkline';
@@ -28,6 +29,7 @@ import {
   Eye,
   TrendingUp,
   ListChecks,
+  Settings,
 } from 'lucide-react';
 
 const navItems = [
@@ -52,6 +54,7 @@ const navItems = [
   { href: '/dashboard/reports', label: 'Reports', icon: BarChart3, roles: ['center_admin', 'supervisor'] },
   { href: '/dashboard/lookout', label: 'Lookout', icon: Eye, roles: ['supervisor'] },
   { href: '/dashboard/billing', label: 'Billing', icon: CreditCard, roles: ['center_admin'] },
+  { href: '/dashboard/platform', label: 'Platform Pricing', icon: Settings, roles: ['platform_admin'] },
 ];
 
 type TrendPeriod = 'today' | 'week' | 'month';
@@ -109,9 +112,9 @@ export function Sidebar() {
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-gray-200 px-6">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-          <span className="text-sm font-bold text-white">AZM</span>
+          <span className="text-sm font-bold text-white">{BRAND}</span>
         </div>
-        <span className="font-semibold text-gray-900">AZM Therapy</span>
+        <span className="font-semibold text-gray-900">{BRAND_FULL}</span>
       </div>
 
       {/* Navigation */}

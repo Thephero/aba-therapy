@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
+import { BRAND_FULL } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "AZM Therapy",
-  description: "AZM Therapy — Applied Behavior Analysis therapy management platform",
+  title: BRAND_FULL,
+  description: BRAND_FULL + " — Applied Behavior Analysis therapy management platform",
 };
 
 export default function RootLayout({

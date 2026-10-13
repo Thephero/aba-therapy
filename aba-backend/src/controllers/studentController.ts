@@ -1,5 +1,6 @@
 import { prisma, containsInsensitive } from '../utils/prisma';
 import { getStudentScope, canAccessStudent } from '../utils/access';
+import { getPricingConfig, effectiveStudentLimit, itemByKey, platformBrand } from '../services/platformSettings';
 import { Request, Response, NextFunction } from 'express';
 import type { Prisma } from '@prisma/client';
 
@@ -20,7 +21,7 @@ const studentScalarSelect = {
   updatedAt: true,
 } as const;
 
-// Student codes are short, stable, human-readable IDs (e.g. AZM-0001),
+// Student codes are short, stable, human-readable IDs (e.g. "<brand>-0001"
 // unique per center. They anchor every related record for the upcoming
 // LLM knowledge base, so they must never change once assigned.
 async function generateStudentCode(tx: Prisma.TransactionClient, centerId: string): Promise<string> {
@@ -36,7 +37,7 @@ async function generateStudentCode(tx: Prisma.TransactionClient, centerId: strin
   let n = lastNum + 1;
   // Handle rare out-of-order codes with retries on collision.
   for (;;) {
-    const code = `AZM-${String(n).padStart(4, '0')}`;
+    const code = `${platformBrand()}-${String(n).padStart(4, '0')}`;
     const clash = await tx.student.findFirst({ where: { centerId, code } });
     if (!clash) return code;
     n += 1;
@@ -126,7 +127,8 @@ export async function createStudent(req: Request, res: Response, next: NextFunct
       return;
     }
 
-    // ─── Subscription limit enforcement ───
+    // ─── Subscription limit enforcement (prices live in the platform DB) ───
+    const pricing = await getPricingConfig();
     const subscription = await prisma.subscription.findUnique({ where: { centerId } });
     if (subscription) {
       // Expired trial counts as PAST_DUE even if no webhook has arrived yet.
@@ -135,16 +137,22 @@ export async function createStudent(req: Request, res: Response, next: NextFunct
         !!subscription.trialEndsAt &&
         subscription.trialEndsAt.getTime() < Date.now();
       const blockedStatus = trialExpired || subscription.status === 'PAST_DUE' || subscription.status === 'CANCELED';
-      const limitReached = subscription.activeStudentLimit != null;
-      if (limitReached) {
-        const activeStudents = await prisma.student.count({ where: { centerId, isActive: true } });
-        if (activeStudents >= subscription.activeStudentLimit) {
-          res.status(402).json({
-            error: `Your plan allows ${subscription.activeStudentLimit} active students. Upgrade your subscription to add more.`,
-            code: 'PLAN_LIMIT_REACHED',
-          });
-          return;
-        }
+      const included = pricing.includedStudents;
+      const extraStudents = subscription.extraStudents;
+      const limit = effectiveStudentLimit(included, extraStudents);
+      const activeStudents = await prisma.student.count({ where: { centerId, isActive: true } });
+      if (activeStudents >= limit) {
+        const seatItem = itemByKey(pricing, 'EXTRA_STUDENT');
+        const seatPrice = seatItem?.price ?? 10;
+        res.status(402).json({
+          error: `Your subscription includes ${included} student${included === 1 ? '' : 's'}${extraStudents ? ` plus ${extraStudents} extra seat${extraStudents === 1 ? '' : 's'}` : ''}. Additional students are ${pricing.currency} ${seatPrice}${seatItem?.recurring ? '/student/month' : ''} — subscribe or add more from Billing.`,
+          code: 'STUDENT_LIMIT_REACHED',
+          includedStudents: included,
+          extraStudents,
+          upgradeItemKey: 'EXTRA_STUDENT',
+          seatsNeeded: activeStudents + 1 - limit,
+        });
+        return;
       }
       if (blockedStatus) {
         res.status(402).json({

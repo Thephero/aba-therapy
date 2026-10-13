@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,6 +9,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { CreditCard, ExternalLink, Check, AlertTriangle } from 'lucide-react';
+
+interface PricingItem {
+  key: string;
+  label: string;
+  price: number;
+  recurring: boolean;
+  enabled: boolean;
+  stripePriceId: string;
+}
 
 interface BillingData {
   configured: boolean;
@@ -18,6 +27,8 @@ interface BillingData {
     effectiveStatus: string;
     billingCycle: string | null;
     studentLimit: number;
+    includedStudents: number;
+    extraStudents: number;
     activeStudents: number;
     currentPeriodEnd: string | null;
     trialEndsAt: string | null;
@@ -25,14 +36,15 @@ interface BillingData {
     amount: number;
     currency: string;
   } | null;
-  plans: { id: string; studentLimit: number }[];
+  pricing?: {
+    currency: string;
+    basePrice: number;
+    annualPrice: number | null;
+    annualEnabled: boolean;
+    includedStudents: number;
+    items: PricingItem[];
+  };
 }
-
-const PLAN_DETAILS: Record<string, { name: string; monthly: number; annual: number; blurb: string }> = {
-  BASIC: { name: 'Basic', monthly: 199, annual: 1990, blurb: 'For small centers getting started' },
-  PRO: { name: 'Pro', monthly: 449, annual: 4490, blurb: 'For growing centers with multiple teams' },
-  ENTERPRISE: { name: 'Enterprise', monthly: 899, annual: 8990, blurb: 'For large centers and multi-branch groups' },
-};
 
 const STATUS_BADGES: Record<string, { label: string; variant: 'success' | 'warning' | 'danger' | 'primary' }> = {
   TRIALING: { label: 'Free trial', variant: 'primary' },
@@ -44,10 +56,10 @@ const STATUS_BADGES: Record<string, { label: string; variant: 'success' | 'warni
 export default function BillingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [cycle, setCycle] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY');
-  const [busyPlan, setBusyPlan] = useState<string | null>(null);
+  const [busyItem, setBusyItem] = useState<string | null>(null);
+  const [extraSeats, setExtraSeats] = useState(1);
 
   const { data, isLoading } = useQuery<BillingData>({
     queryKey: ['billing-status'],
@@ -61,31 +73,25 @@ export default function BillingPage() {
   useEffect(() => {
     const checkout = searchParams.get('checkout');
     if (checkout === 'success') {
-      showToast('Subscription activated! It may take a few seconds to reflect here.', 'success');
+      showToast('Purchase complete! It may take a few seconds to reflect here.', 'success');
     } else if (checkout === 'cancelled') {
       showToast('Checkout was cancelled — no changes were made.', 'info');
     }
     if (checkout) router.replace('/dashboard/billing');
   }, [searchParams, router, showToast]);
 
-  const refreshAfterCheckout = () => {
-    // Stripe Checkout redirects away and back; re-fetch status on return.
-    queryClient.invalidateQueries({ queryKey: ['billing-status'] });
-  };
-  void refreshAfterCheckout;
-
   const checkoutMutation = useMutation({
-    mutationFn: async (plan: string) => {
-      const res = await api.post('/billing/checkout-session', { plan, cycle });
+    mutationFn: async (body: { itemKey: string; quantity?: number; cycle?: string }) => {
+      const res = await api.post('/billing/checkout-session', body);
       return res.data.url as string;
     },
-    onMutate: (plan) => setBusyPlan(plan),
+    onMutate: (body) => setBusyItem(body.itemKey),
     onSuccess: (url) => {
       window.location.href = url; // Stripe-hosted checkout
     },
-    onError: (err: any) => {
+    onError: (err: any, body) => {
       showToast(err?.response?.data?.error || 'Could not start checkout', 'error');
-      setBusyPlan(null);
+      setBusyItem(null);
     },
   });
 
@@ -111,16 +117,19 @@ export default function BillingPage() {
   }
 
   const sub = data?.subscription;
+  const pricing = data?.pricing;
+  const currency = pricing?.currency || sub?.currency || 'USD';
+  const fmt = (n: number) => `${currency} ${n.toLocaleString()}`;
   const statusBadge = sub ? STATUS_BADGES[sub.status] || STATUS_BADGES.ACTIVE : null;
-  const isCurrentPlan = (planId: string) =>
-    sub && ['ACTIVE', 'TRIALING'].includes(sub.status) && sub.plan === planId;
+  const baseCurrent = sub && ['ACTIVE', 'TRIALING'].includes(sub.status);
 
-  return (      <div className="space-y-6">
+  return (
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Billing & Subscription</h1>
-          <p className="text-sm text-gray-500">Manage your center's plan, payment method, and invoices.</p>
+          <p className="text-sm text-gray-500">Manage your center's plan, seats, and add-ons.</p>
         </div>
         {sub && sub.status === 'ACTIVE' && (
           <Button variant="outline" onClick={() => portalMutation.mutate()} disabled={portalMutation.isPending}>
@@ -135,8 +144,8 @@ export default function BillingPage() {
           <CardContent className="flex items-start gap-3 pt-6">
             <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
             <div className="text-sm text-amber-800">
-              Payments are not configured on the server yet (missing Stripe keys). You can browse plans, but checkout is
-              disabled until your administrator adds the Stripe environment variables.
+              Payments are not configured on the server yet (missing Stripe keys). You can browse the plans below, but
+              checkout is disabled until your administrator completes the Stripe setup.
             </div>
           </CardContent>
         </Card>
@@ -149,7 +158,7 @@ export default function BillingPage() {
             <div>
               <CardTitle className="text-base">Current plan</CardTitle>
               <CardDescription>
-                {sub.plan === 'TRIAL' ? '14-day free trial' : PLAN_DETAILS[sub.plan]?.name || sub.plan}
+                {sub.plan === 'TRIAL' ? 'Free trial' : sub.plan === 'BASE' ? 'Base subscription' : sub.plan}
                 {sub.billingCycle ? ` · billed ${sub.billingCycle.toLowerCase()}` : ''}
               </CardDescription>
             </div>
@@ -159,7 +168,11 @@ export default function BillingPage() {
             <div>
               <div className="text-xs uppercase tracking-wide text-gray-400">Students</div>
               <div className="text-lg font-semibold text-gray-900">
-                {sub.activeStudents} <span className="text-sm font-normal text-gray-500">/ {sub.studentLimit} included</span>
+                {sub.activeStudents} <span className="text-sm font-normal text-gray-500">/ {sub.studentLimit} allowed</span>
+              </div>
+              <div className="text-xs text-gray-400">
+                {sub.includedStudents ?? (pricing?.includedStudents ?? 0)} included
+                {sub.extraStudents ? ` + ${sub.extraStudents} extra seats` : ''}
               </div>
             </div>
             <div>
@@ -179,7 +192,7 @@ export default function BillingPage() {
               <div className="text-lg font-semibold text-gray-900">
                 {sub.status === 'TRIALING' || sub.amount === 0
                   ? 'Free'
-                  : `AED ${sub.amount.toLocaleString()} / ${sub.billingCycle === 'ANNUAL' ? 'yr' : 'mo'}`}
+                  : `${fmt(sub.amount)} / ${sub.billingCycle === 'ANNUAL' ? 'yr' : 'mo'}`}
               </div>
             </div>
           </CardContent>
@@ -199,99 +212,156 @@ export default function BillingPage() {
                     : `${sub.daysLeft} day${sub.daysLeft === 1 ? '' : 's'} left in your free trial`}
                 </div>
                 <div className={sub.daysLeft <= 3 ? 'text-red-700' : 'text-indigo-700'}>
-                  Choose a plan below to keep adding students — your data stays safe.
+                  Subscribe below to keep adding students — your data stays safe.
                 </div>
               </div>
             </div>
             <Button size="sm" onClick={() => document.getElementById('plans')?.scrollIntoView({ behavior: 'smooth' })}>
-              Choose a plan
+              View plans
             </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* Cycle toggle */}
-      <div className="flex items-center justify-center gap-2" id="plans">
-        <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
-          <button
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${cycle === 'MONTHLY' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:text-gray-900'}`}
-            onClick={() => setCycle('MONTHLY')}
-          >
-            Monthly
-          </button>
-          <button
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${cycle === 'ANNUAL' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:text-gray-900'}`}
-            onClick={() => setCycle('ANNUAL')}
-          >
-            Annual <span className="ml-1 text-xs opacity-90">· 2 months free</span>
-          </button>
+      {/* Plans */}
+      <div id="plans" className="space-y-4">
+        {/* Cycle toggle (only when annual is enabled) */}
+        {pricing?.annualEnabled && pricing.annualPrice != null && (
+          <div className="flex items-center justify-center gap-2">
+            <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
+              <button
+                className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${cycle === 'MONTHLY' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                onClick={() => setCycle('MONTHLY')}
+              >
+                Monthly
+              </button>
+              <button
+                className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${cycle === 'ANNUAL' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                onClick={() => setCycle('ANNUAL')}
+              >
+                Annual
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Base subscription card */}
+        {pricing && (
+          <Card className={baseCurrent ? 'border-indigo-400 ring-2 ring-indigo-100' : ''}>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Base subscription</CardTitle>
+                {baseCurrent && <Badge variant="primary">Current</Badge>}
+              </div>
+              <CardDescription>Everything you need to run your center</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <span className="text-3xl font-bold text-gray-900">
+                  {fmt(cycle === 'ANNUAL' && pricing.annualPrice != null ? pricing.annualPrice : pricing.basePrice)}
+                </span>
+                <span className="text-sm text-gray-500"> / {cycle === 'ANNUAL' ? 'year' : 'month'}</span>
+                <div className="mt-1 text-sm text-gray-600">
+                  Includes {pricing.includedStudents} active student{pricing.includedStudents === 1 ? '' : 's'}
+                </div>
+              </div>
+              <ul className="space-y-1.5 text-sm text-gray-600">
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-emerald-500" />
+                  Unlimited staff accounts
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-emerald-500" />
+                  Assessments, sessions & reporting tools
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-emerald-500" />
+                  Add more students any time (below)
+                </li>
+              </ul>
+              {baseCurrent && sub?.plan === 'BASE' ? (
+                <Button variant="outline" className="w-full" onClick={() => portalMutation.mutate()} disabled={!data?.configured || portalMutation.isPending}>
+                  Manage in portal
+                </Button>
+              ) : (
+                <Button
+                  className="w-full"
+                  variant={baseCurrent ? 'outline' : 'default'}
+                  disabled={!data?.configured || busyItem !== null}
+                  onClick={() => checkoutMutation.mutate({ itemKey: 'BASE_SUBSCRIPTION', cycle })}
+                >
+                  <CreditCard className="h-4 w-4" />
+                  {busyItem === 'BASE_SUBSCRIPTION' ? 'Redirecting…' : sub?.plan === 'TRIAL' ? 'Subscribe' : 'Switch to this plan'}
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Add-on cards */}
+        <div className="grid gap-4 md:grid-cols-3">
+          {(pricing?.items || []).filter((item) => item.enabled).map((item) => {
+            const isSeats = item.key === 'EXTRA_STUDENT';
+            const isCurrent =
+              sub &&
+              ['ACTIVE'].includes(sub.status) &&
+              sub.plan === 'BASE' &&
+              isSeats &&
+              (sub.extraStudents || 0) > 0;
+            return (
+              <Card key={item.key} className={isCurrent ? 'border-indigo-400 ring-2 ring-indigo-100' : ''}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm">{item.label}</CardTitle>
+                    <Badge variant={item.recurring ? 'primary' : 'success'}>
+                      {item.recurring ? 'per month' : 'one-time'}
+                    </Badge>
+                  </div>
+                  {isSeats && (sub?.extraStudents ?? 0) > 0 && (
+                    <CardDescription>Currently: {sub!.extraStudents} extra seat(s)</CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <span className="text-2xl font-bold text-gray-900">{fmt(item.price)}</span>
+                    {isSeats && <span className="text-sm text-gray-500"> per student / month</span>}
+                  </div>
+                  {isSeats && (
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-500">Seats</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={extraSeats}
+                        onChange={(e) => setExtraSeats(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
+                        className="h-9 w-20 rounded-md border border-gray-200 px-2 text-sm"
+                      />
+                      <span className="text-xs text-gray-400">
+                        = {fmt(item.price * extraSeats)}
+                        {item.recurring ? '/mo' : ''}
+                      </span>
+                    </div>
+                  )}
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    disabled={!data?.configured || busyItem !== null}
+                    onClick={() => checkoutMutation.mutate({ itemKey: item.key, quantity: isSeats ? extraSeats : 1, cycle })}
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    {busyItem === item.key ? 'Redirecting…' : isSeats ? 'Add seats' : 'Purchase'}
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
 
-      {/* Plan cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        {(data?.plans || []).map((plan) => {
-          const details = PLAN_DETAILS[plan.id];
-          const price = cycle === 'ANNUAL' ? details.annual : details.monthly;
-          const current = isCurrentPlan(plan.id);
-          const isActivePlan = sub && ['ACTIVE'].includes(sub.status) && sub.plan === plan.id;
-          return (
-            <Card key={plan.id} className={current ? 'border-indigo-400 ring-2 ring-indigo-100' : ''}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">{details.name}</CardTitle>
-                  {current && <Badge variant="primary">Current</Badge>}
-                </div>
-                <CardDescription>{details.blurb}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <span className="text-3xl font-bold text-gray-900">AED {price.toLocaleString()}</span>
-                  <span className="text-sm text-gray-500"> / {cycle === 'ANNUAL' ? 'year' : 'month'}</span>
-                  {cycle === 'ANNUAL' && (
-                    <div className="mt-0.5 text-xs text-emerald-600">
-                      ≈ AED {Math.round(details.annual / 12).toLocaleString()}/mo — 2 months free
-                    </div>
-                  )}
-                </div>
-                <ul className="space-y-1.5 text-sm text-gray-600">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500" />
-                    Up to {plan.studentLimit} active students
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500" />
-                    Unlimited staff accounts
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500" />
-                    Assessments, sessions & reports
-                  </li>
-                </ul>
-                {isActivePlan ? (
-                  <Button variant="outline" className="w-full" onClick={() => portalMutation.mutate()} disabled={portalMutation.isPending}>
-                    Manage in portal
-                  </Button>
-                ) : (
-                  <Button
-                    className="w-full"
-                    variant={current ? 'outline' : 'default'}
-                    disabled={!data?.configured || busyPlan !== null}
-                    onClick={() => checkoutMutation.mutate(plan.id)}
-                  >
-                    <CreditCard className="h-4 w-4" />
-                    {busyPlan === plan.id ? 'Redirecting…' : sub?.plan && sub.plan !== 'TRIAL' ? 'Switch to this plan' : 'Subscribe'}
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
       <p className="text-center text-xs text-gray-400">
-        Payments are processed securely by Stripe. Cancel or change your plan anytime — access continues until the end
-        of the billing period.
+        Payments are processed securely by Stripe. Cancel or change anytime — access continues until the end of the
+        billing period.
       </p>
     </div>
   );

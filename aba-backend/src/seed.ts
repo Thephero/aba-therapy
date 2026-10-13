@@ -44,6 +44,26 @@ async function main() {
     } else {
       console.log('✅ Parent user already exists.');
     }
+
+    // Ensure the platform owner exists (added Oct 13)
+    const existingOwner = await prisma.user.findUnique({
+      where: { email: 'owner@aba-demo.com' },
+    });
+    if (!existingOwner) {
+      const ownerHash = await hashPassword('owner123');
+      const owner = await prisma.user.create({
+        data: {
+          centerId: existingAdmin.centerId,
+          role: 'PLATFORM_ADMIN',
+          name: 'Platform Owner',
+          email: 'owner@aba-demo.com',
+          passwordHash: ownerHash,
+        },
+      });
+      console.log(`✅ Created platform owner: ${owner.email} / password: owner123`);
+    } else {
+      console.log('✅ Platform owner already exists.');
+    }
     
     return;
   }
@@ -55,14 +75,15 @@ async function main() {
     },
   });
 
-  // Create subscription linked to center
+  // Create subscription linked to center (platform pricing: base 180 USD incl. 10 students)
   await prisma.subscription.create({
     data: {
       centerId: center.id,
-      plan: 'PRO',
+      plan: 'BASE',
       status: 'ACTIVE',
-      currentAmount: 499.00,
-      activeStudentLimit: 50,
+      currentAmount: 180,
+      currency: 'USD',
+      activeStudentLimit: 10,
     },
   });
   console.log(`✅ Created center: ${center.name} (${center.id})`);
@@ -79,6 +100,19 @@ async function main() {
     },
   });
   console.log(`✅ Created admin: ${admin.email} / password: admin123`);
+
+  // Create platform owner (edits pricing from the dashboard)
+  const ownerHash = await hashPassword('owner123');
+  const owner = await prisma.user.create({
+    data: {
+      centerId: center.id,
+      role: 'PLATFORM_ADMIN',
+      name: 'Platform Owner',
+      email: 'owner@aba-demo.com',
+      passwordHash: ownerHash,
+    },
+  });
+  console.log(`✅ Created platform owner: ${owner.email} / password: owner123`);
 
   // Create supervisor user
   const supervisorHash = await hashPassword('supervisor123');
@@ -186,10 +220,11 @@ async function main() {
   console.log('\n🎉 Seed complete!');
   console.log('---');
   console.log('Login credentials:');
-  console.log('  Admin:      admin@aba-demo.com / admin123');
-  console.log('  Supervisor: supervisor@aba-demo.com / supervisor123');
-  console.log('  Therapist:  therapist@aba-demo.com / therapist123');
-  console.log('  Parent:     parent@aba-demo.com / parent123');
+  console.log('  Admin:            admin@aba-demo.com / admin123');
+  console.log('  Supervisor:       supervisor@aba-demo.com / supervisor123');
+  console.log('  Therapist:        therapist@aba-demo.com / therapist123');
+  console.log('  Parent:           parent@aba-demo.com / parent123');
+  console.log('  Platform owner:   owner@aba-demo.com / owner123  (pricing dashboard)');
 }
 
 main()

@@ -34,6 +34,11 @@ app.use(express.json({ limit: '10mb' }));
 // ─── Routes ─────────────────────────────────────────────────────────────────
 app.use('/api/v1', routes);
 
+// Non-webhook billing endpoints (status / checkout-session / portal-session).
+// Same router as the webhook mount above, but the webhook itself is matched
+// first by the raw-body mount, so signature verification is unaffected.
+app.use('/api/v1', billingRoutes);
+
 // ─── Error Handling ─────────────────────────────────────────────────────────
 app.use(notFound);
 app.use(errorHandler);

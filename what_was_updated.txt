@@ -1,0 +1,138 @@
+================================================================
+ WHAT WAS UPDATED — Oct 13, 2026 (rebrand + pricing dashboard)
+================================================================
+
+WHY: The old "azm" / fixed-plans billing was replaced with:
+  1. A new brand name everywhere (A-Z-Z-M).
+  2. A pricing system YOU (the platform owner) control from a
+     dashboard in the app — no code changes or redeploy needed.
+
+----------------------------------------------------------------
+ 1) NEW BRAND
+----------------------------------------------------------------
+- App title (browser tab), login page heading and the sidebar
+  logo now all say "AZZM Platform" — built from one shared file
+  so nothing is ever misspelled:
+      aba-web/src/lib/brand.ts
+- Student codes changed prefix over:
+      Old: AZM-0001     New: AZZM-0001
+  - Every existing live student was renumbered automatically.
+  - Students that had NO code also got one now (AZZM-0003 .. 0007).
+  - Every new student gets the next AZZM-0008, 0009, ... automatic.
+  Codes are permanent — never change a student's code after
+  assignment (all future records hang off it).
+
+================================================================
+ 2) PRICING — THE NUMBERS YOU CHOSE
+================================================================
+  Base subscription ........ 180 USD / month
+     Includes .............. 10 active students
+     Extra students ........ +10 USD per extra student / month
+     Report generation ..... 10 USD one-off per report
+     LLM assistant add-on .. 20 USD / month
+  Annual / yearly billing ... turned OFF for now (you can enable
+     it later from the same dashboard).
+
+These numbers are the DEFAULTS. Change them any time — see below.
+
+================================================================
+ 3) THE OWNER PRICING DASHBOARD (new page)
+================================================================
+Where:  https://azm-therapy.vercel.app/dashboard/platform
+        (also reachable from the sidebar "Platform Pricing" item —
+         only the platform owner account sees it)
+
+Who:    owner@aba-demo.com / owner123
+
+What you can edit there:
+  - Currency (USD, AED, ...) and base monthly price
+  - How many students the base plan includes
+  - Turn yearly (annual) billing on with its price
+  - Each add-on: label, price, monthly vs one-off, on/off
+  - One "Save" button at the bottom.
+
+How saving works:
+  - The new prices apply IMMEDIATELY for every center (no
+    redeploy, no restart). Limit enforcement and the Billing
+    page update instantly.
+  - Stripe price objects are created/refreshed automatically
+    when Stripe is connected. Price IDs are immutable, so the
+    system always switches to the newest price on the next
+    checkout — nothing to do manually.
+
+================================================================
+ 4) THE CENTER (ADMIN) BILLING PAGE
+================================================================
+Where:  https://azm-therapy.vercel.app/dashboard/billing
+
+Now shows everything from the live pricing above:
+  - Current plan, status, price, and slot usage
+        (students used  X of:  included + purchased extras)
+  - Cards for each add-on with adjustable quantities
+    (e.g. buy 3 extra student seats → Checkout opens).
+  - "Manage billing" opens Stripe's portal once Stripe is live.
+
+Owner-set limit enforcement (verified live locally):
+  - When a center tries to add a student past its allowed
+    count, the API refuses with code 402 and tells the admin
+    exactly how many seats they need to buy.
+
+================================================================
+ 5) SERVER PATHS (for reference)
+----------------------------------------------------------------
+- Frontend:  https://aba-therapy-eight.vercel.app
+             (https://azm-therapy.vercel.app is the nicer name)
+- Backend:   https://aba-therapy-backend-7l47.onrender.com
+             API base: .../api/v1 — health check: .../api/v1/health
+- Owner pricing API:
+             GET  /platform/pricing   (any logged-in staff)
+             PUT  /platform/pricing   (platform owner ONLY)
+
+================================================================
+ 6) IMPORTANT NOTES
+================================================================
+- STRIPE IS NOT YET CONNECTED. Everything (pricing edits, limits,
+  billing page) works without Stripe — the checkout buttons only
+  say "payments not configured". To turn real charging on:
+     1. Create the Stripe (test) price(s) — the app creates the
+        Price objects itself once you save pricing with a key set,
+        so in most cases you only need these env vars on Render:
+             STRIPE_SECRET_KEY
+             STRIPE_WEBHOOK_SECRET
+     2. Add the Stripe webhook endpoint:
+             https://aba-therapy-backend-7l47.onrender.com/api/v1/webhooks/stripe
+        (events: checkout.session.completed, customer.subscription.*,
+         invoice.payment_failed)
+- FREE-TIER SLEEP: after ~15 min idle, the backend stops; the
+  first click afterwards takes 30–60 s to load. That is normal.
+- Safe habits if you ever run anything local: never commit
+  secrets; production DB scripts ask for a postgresql:// URL.
+
+================================================================
+ 7) WHAT SHIPPED UNDER THE HOOD (quick recap)
+================================================================
+- New "PlatformSetting" table in the database + extra-student
+  counter on each subscription (both DB types; Neon production
+  schema already pushed on Oct 13).
+- Developer endpoint /services updated: platform owner seeding,
+  item-based checkout (base plan / seat packs / one-off items),
+  webhook handling of seat packs, live limit enforcement,
+  ownership checks (only PLATFORM_ADMIN can edit), error-code
+  cleanup.
+- Bug fixed during go-live: /api/v1/billing/status etc. were
+  unreachable (404) — now fixed (mount under /api/v1 while the
+  webhook remains on the raw-body path) and customers couldn't
+  see their billing — fixed and verified live.
+- Verified LIVE after deploy: owner login, pricing GET, admin
+  PUT blocked, student code generation, billing status,
+  frontend branding.
+
+================================================================
+ QUICK REFERENCE — ACCOUNTS
+================================================================
+  Platform owner:  owner@aba-demo.com        / owner123
+  Admin:           admin@aba-demo.com        / admin123
+  Supervisor:      supervisor@aba-demo.com   / supervisor123
+  Therapist:       therapist@aba-demo.com    / therapist123
+  Parent:          parent@aba-demo.com       / parent123
+================================================================

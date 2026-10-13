@@ -111,6 +111,15 @@ git push -u origin main
 
 Push to GitHub → Render and Vercel auto-deploy. The seed script is idempotent, so demo data is never duplicated.
 
+Pushing commits only ships **code** — it never updates the **database schema**. After changing `schema.postgres.prisma` you must push the schema to Neon before/with the deploy, otherwise the running backend queries columns that don't exist and every affected endpoint returns 500 (this happened Oct 10–13: `Student.code` / `PasswordResetToken` / Subscription billing columns were missing → student endpoints 500 on live). Two ways:
+
+- **From Render dashboard (recommended):** Backend service → Settings → Build Command →
+  `npm ci --include=dev && npm run db:generate:prod && npm run db:push:prod && npm run build` → save → **Manual Deploy**. Future deploys then always keep the schema in sync.
+- **From a local machine:** paste the Neon `postgresql://` URL into a git-ignored file, then
+  `cd aba-backend && DATABASE_URL=<url> npm run db:push:prod`. Only do this on a machine whose local dev DB you can restore (`npm run db:restore:local` regenerates the SQLite client, then restart the local backend).
+
+After a schema change, **redeploy the backend** even if the push already happened: a long-running Render process can cache prepared query plans that go stale after the `ALTER TABLE`.
+
 > ⚠️ **Guard notes:**
 > - **Backend:** prod DB scripts (`db:push:prod`, `db:generate:prod`, `db:seed:prod`) run `node scripts/check-prod-db.js` first — they **refuse to run** unless `DATABASE_URL` starts with `postgresql://`. On Render the Neon URL is injected automatically, so deploys are unaffected. If you ever run a prod script locally and it's blocked, restore the local SQLite client with `npm run db:restore:local`.
 > - **Frontend:** `npm run build` runs `aba-web/scripts/check-env.js` first — on Vercel (VERCEL=1/CI) it **blocks the build** unless `NEXT_PUBLIC_API_URL` is a valid non-localhost `https://` URL. Your Vercel env var already points at the correct Render URL, so deploys pass. To check locally: `cd aba-web && npm run env:check`. Regression tests: `npm run test:env-guard`.

@@ -44,3 +44,6 @@ coverage/
 
 # Misc Windows artifacts
 nul
+
+# Production secrets (ephemeral, never commit)
+.env.production-secret.txt

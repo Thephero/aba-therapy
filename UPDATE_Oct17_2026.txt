@@ -1,0 +1,165 @@
+════════════════════════════════════════════════════════════════════
+  UPDATE & GO-LIVE CHECKLIST — Oct 17, 2026
+════════════════════════════════════════════════════════════════════
+
+WHAT WAS DONE (session log with dates & times)
+──────────────────────────────────────────────────────────────
+
+Oct 17, ~12:00–13:30 GMT+4 — DOCUMENT STORAGE FIXED
+  • Root cause found: uploads up to 5MB were accepted, but the backend
+    only actually saved files ≤1MB (base64 in Postgres). 1–5MB files
+    were silently discarded → "file too large to store in-app" errors.
+  • New: aba-backend/src/utils/storage.ts — Cloudflare R2 (S3-compatible)
+    client with putObject / getDownloadUrl (10-min signed URLs) /
+    deleteObject. Activates only when R2_* env vars exist (safe fallback
+    locally).
+  • Updated: aba-backend/src/controllers/documentController.ts —
+    uploads go to R2 (documents/<docId>/<file>), download returns signed
+    URL, delete also removes the R2 object, filenames sanitized.
+  • Updated: aba-web staff + parent Documents pages — follow signed URLs.
+  • Verified: tsc clean (backend + frontend).
+
+Oct 17, ~14:00 — SIDEBAR FIX
+  • Fixed React duplicate-key warning ("two children with the same key
+    /dashboard/parent/student") by keying nav items on href+label.
+
+Oct 17, ~15:00 — YOUR R2 SETUP (guided screen-by-screen)
+  • R2 subscription enabled ($0.00, free tier: 10GB / 1M writes / 10M
+    reads / zero egress).
+  • Bucket created: azzm-documents (Eastern Europe EEUR region).
+    Account ID: 12bd014e61e7f823d9131f77874d53bf
+  • CORS policy added (GET from any origin — via signed URLs only).
+  • API token updated to: Object Read & Write on azzm-documents, Active.
+
+Oct 17, ~15:30 — PLATFORM ADMIN DASHBOARD (your request: "platform
+  back should show number of centers, number of students, tools paid")
+  • New backend route: GET /api/v1/platform/stats (PLATFORM_ADMIN only)
+  • New "Platform overview" grid at top of Platform Pricing page:
+    centers registered • students registered • paying centers •
+    paid add-on seats • est. monthly revenue • users by role.
+  • Note: one-off purchases (single reports) are not yet recorded
+    locally — stats count paying centers + extra-student seats.
+
+Oct 17, ~16:00 — MESSAGING & NOTIFICATIONS
+  • Messaging was already all-direction (one group chat per child:
+    admin ↔ supervisor ↔ therapist ↔ parent). Added:
+  • CENTER_ADMIN "Send to everyone" checkbox in MessagingPanel —
+    posts one message into every student's chat; each copy addressed
+    to that child's parent so unread badges work.
+  • Attendance notifications: every staff attendance mark (attended/
+    absent/sick/late) auto-messages the child's parent in the chat.
+  • New parent dashboard card: "This week's attendance" (attended vs
+    missed counts + per-day list, Mon–today).
+
+Oct 17, ~16:30 — STRIPE (guided; test mode)
+  • Webhook destination created (id we_1URUzxA6icBH2sMPrknIvHi6,
+    name "ABA backend") → https://aba-therapy-backend-7l47.onrender.com/
+    api/v1/webhooks/stripe — listening to exactly the 4 events our code
+    handles: checkout.session.completed, customer.subscription.updated,
+    customer.subscription.deleted, invoice.payment_failed (Snapshot
+    payload). Signing secret copied.
+
+Oct 17, 15:11 GMT+4 — DEPLOYED ✅ (Render build log)
+  • Commit 2189086 "Move document storage to R2, add platform stats,
+    broadcasts & attendance notifications" (21 files, +1746) pushed to
+    GitHub main; Render deploy succeeded in 57.1s; backend build clean.
+  • Live checks by Codebuff from outside: /api/v1/health → ok;
+    /platform/stats unauthenticated → 401 (auth working);
+    webhook unsigned POST → 400 (signature check working).
+
+ENV VARS NOW SET IN RENDER (confirm all 6 are there)
+──────────────────────────────────────────────────────────────
+  R2_ACCOUNT_ID          = 12bd014e61e7f823d9131f77874d53bf
+  R2_BUCKET              = azzm-documents
+  R2_ACCESS_KEY_ID       = (your R2 token's Access Key ID)
+  R2_SECRET_ACCESS_KEY   = (your R2 token's Secret Access Key)
+  STRIPE_SECRET_KEY      = sk_test_51UQth0A6... (test mode!)
+  STRIPE_WEBHOOK_SECRET  = whsec_L9Mq9ziztffVQ1tBX0yJcD8hpYUGt5kf
+
+════════════════════════════════════════════════════════════════════
+  WHAT YOU NEED TO CHECK (browser tests, in order)
+════════════════════════════════════════════════════════════════════
+
+TEST LOGINS YOU NEED (verified against aba-backend/src/seed.ts):
+  • Platform owner:  owner@aba-demo.com      / owner123
+  • Center admin:    admin@aba-demo.com      / admin123
+  • Supervisor:      supervisor@aba-demo.com / supervisor123
+  • Therapist:       therapist@aba-demo.com  / therapist123
+  • Parent:          parent@aba-demo.com     / parent123
+
+📝 TEST 1 — PLATFORM STATS  (2 min)
+  Log in as platform owner → /dashboard/platform
+  ✓ "Platform overview" grid visible at top with live counts
+  ✓ Numbers match: centers, students, users by role
+
+💳 TEST 2 — STRIPE PRICE SYNC  (2 min)
+  Still as platform owner → change a price by 1 → Save
+  ✓ Green toast "Pricing saved"
+  ✓ Stripe dashboard → Product catalog → products/prices appear
+
+🧾 TEST 3 — CHECKOUT  (3 min)
+  Log in as center admin → Billing → subscribe/checkout
+  Card: 4242 4242 4242 4242 | any future expiry (12/34) | CVC 123
+  ✓ App: Billing page shows subscription ACTIVE
+  ✓ Stripe → Developer destination page → green Event deliveries
+  ✓ Platform overview → "Paying centers" +1
+
+📄 TEST 4 — DOCUMENTS (the original bug)  (3 min)
+  Log in as staff → Documents → upload a PDF between 1MB and 5MB
+  ✓ Upload succeeds
+  ✓ Click "Open" → the actual file downloads
+  ✓ Cloudflare → R2 → azzm-documents → Objects tab shows documents/...
+  ✓ Delete in app → object disappears from bucket too
+
+📨 TEST 5 — BROADCAST  (2 min)
+  Log in as center admin → Messages → tick "Send to everyone" → send
+  ✓ Reads "Sent to N chats"
+  ✓ Parent login → red unread badge on that child's thread
+
+📋 TEST 6 — ATTENDANCE NOTIFICATION  (2 min)
+  Staff: mark a child's attendance (e.g., ABSENT) for today
+  ✓ Parent login: Messages → unread "📋 Attendance update..."
+  ✓ Parent Dashboard: "This week's attendance" card shows the mark
+
+════════════════════════════════════════════════════════════════════
+  ALL DATA YOU NEED (quick reference)
+════════════════════════════════════════════════════════════════════
+  Backend (Render):  https://aba-therapy-backend-7l47.onrender.com
+                     ⚠️ 7l47 = letter L, not digit 1 (past typo!)
+  Frontend (Vercel): your app URL in the Vercel dashboard tab
+  Cloudflare acct:   12bd014e61e7f823d9131f77874d53bf
+  R2 bucket:         azzm-documents (EEUR region)
+  R2 token:          "R2 Account Token" — Object Read & Write,
+                     applied to azzm-documents — Active (Oct 17)
+  Stripe account:    acct_1UQth0A6icBH2sMPI (AZZM Platform, TEST mode)
+  Stripe webhook:    we_1URUzxA6icBH2sMPrknIvHi6 "ABA backend"
+  Stripe test card:  4242 4242 4242 4242 / 12/34 / 123
+  Deployed commit:   2189086 (Oct 17, 15:11 GMT+4, Render, Live)
+  GitHub:            github.com/Thephero/aba-therapy, branch main
+
+⚠️ SECURITY CLEANUP (do after tests pass)
+  1. ROTATE the Stripe test key: Stripe → Developers → API keys →
+     "Rotate secret key" (it was pasted in chat) → update
+     STRIPE_SECRET_KEY in Render → redeploy.
+  2. The R2 secret was also pasted in chat — after tests, roll the R2
+     token (R2 → API Tokens → ⋯ → Roll / regenerate keys) → update
+     Render R2_* vars → redeploy.
+  3. Optional tightening: R2 CORS "AllowedOrigins" from "*" to your
+     exact Vercel URL.
+
+WHEN GOING LIVE WITH REAL MONEY (later)
+  • Stripe → toggle to LIVE mode → new sk_live_ key + new webhook in
+    live mode (same URL) → set both in Render → Platform Pricing →
+    Save again in live mode.
+  • Double-check: business name on invoices (currently "Naturebylily"
+    — BILLING_PLAN.md says change it to the real center brand),
+    UAE bank account linked for payouts, UAE trade license valid.
+
+KNOWN LIMITATIONS (honest notes)
+  • One-off tool purchases (e.g., single report) aren't counted in
+    platform stats yet — needs a ledger table + webhook addition.
+  • Broadcasts don't dedupe on repeat clicks (each send = new copies,
+    same as normal chat behavior).
+  • Old 1–5MB documents uploaded before today were already discarded
+    by the old code — re-upload them.
+════════════════════════════════════════════════════════════════════

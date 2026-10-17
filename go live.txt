@@ -1,0 +1,70 @@
+how is the center creating the user name and password for parent 
+
+"New here? Read the User Guide" should be in the login for all pages , not before the login 
+
+
+
+
+
+
+think for later
+signup for freelance threapist 
+there should be type of sign up , center or parent 
+parent can sign up via center or via by themself how do 
+
+if parent sign up by them self to keep the recourd by them self will have a difrent subsc
+
+
+
+What's already done (in code)
+
+- Backend ( aba-backend ):  services/stripe.ts  + billing routes — Checkout sessions, Customer Portal, signature-verified webhook at  /api/v1/webhooks/stripe , subscription status sync, trial → PAST_DUE handling, student-limit enforcement.
+- Frontend ( aba-web ): Billing page at  /dashboard/billing  with plan table, checkout redirect, "Manage billing" portal.
+- Important change from the old guide: the app now auto-creates its Stripe prices on demand from the Platform pricing dashboard (base subscription + add-ons in AED) — you do not need to manually create 6 products/prices in Stripe, and the  STRIPE_PRICE_*  env vars are legacy/optional.
+- Publishable key ( pk_live_...rGFt ): not needed by the app — checkout and card entry are hosted by Stripe, so only the secret key is used.
+
+What's missing — your go-live checklist
+
+1. Create the LIVE webhook (this is the one thing you can't skip):
+- Stripe Dashboard → switch OFF test mode → Developers → Webhooks → Add endpoint
+- URL:  https://aba-therapy-backend-7l47.onrender.com/api/v1/webhooks/stripe 
+- Events:  checkout.session.completed ,  customer.subscription.updated ,  customer.subscription.deleted ,  invoice.payment_failed 
+- Copy the Signing secret ( whsec_... )
+2. Set 2 env vars on Render (backend service → Environment):
+-  STRIPE_SECRET_KEY  = your  sk_live_...  key
+-  STRIPE_WEBHOOK_SECRET  = the  whsec_...  from step 1
+- Also confirm  CORS_ORIGIN  on Render points at your live Vercel URL — the checkout success/cancel redirect URLs are built from it.
+3. Redeploy the backend on Render. Done — no code changes.
+4. Do one real test: log in as the center admin on the live site → Billing → subscribe with a real card → confirm the Billing page shows Active, then verify subscription + customer IDs in Stripe → Payments. You can refund the test payment from Stripe if you like.
+5. Verify webhook delivery in Stripe → Webhooks → your endpoint → "Attempted deliveries" shows 200s.
+
+Two things worth double-checking before you take real money
+
+- Business name: your Stripe account is under "Naturebylily" — that name appears on every customer invoice. Update Business details in the Stripe dashboard if the ABA platform should show a different name.
+- Payouts: confirm a bank account is added in Stripe (Payments → Bank accounts) — with a UAE account the AED fees are ≈ 2.9% + AED 1 per transaction.
+
+Also: keep the  sk_live_...  key only in the Render dashboard — never in  .env  in the repo (your local  .env  currently has no Stripe keys at all, which is correct; use test keys + Stripe CLI locally if you ever want to re-test).
+
+Want me to do anything on the code side before you flip the keys? (e.g. re-run a typecheck, or update  STRIPE_TEST_MODE_GUIDE.txt  Part E since it still documents the old 6-price flow)
+One more verification pass on the facts I gave in the checklist — the webhook event names in my list must match what  handleStripeEvent  actually handles.
+• Search case '(checkout\.session|customer\.subscription|invoice\.) in aba-backend/src/services (5 results)
+• Search webhooks/stripe in aba-backend/src (3 results)
+• Read aba-backend/src/services/stripe.ts
+Completion check done. Summary of verification:
+
+Verified against the code (no limits found):
+- Webhook route: mounted at  /api/v1/webhooks/stripe  with  express.raw  body for signature verification — matches the endpoint URL I gave for Stripe.
+- Event handling:  handleStripeEvent  covers exactly  checkout.session.completed ,  customer.subscription.updated ,  customer.subscription.deleted ,  invoice.payment_failed  — my 4-event checklist is correct. ( invoice.paid  exists but is a no-op stub, so subscribing to it is not needed.)
+- Checkout: prices are auto-created on demand from the platform pricing config stored in the DB — confirms the 6  STRIPE_PRICE_*  env vars from the old guide are not required, and  pk_live_...  is unused by the app.
+- Local  aba-backend/.env  has no Stripe vars — correct; live keys belong only on Render.
+-  CORS_ORIGIN  on Render drives both the checkout success/cancel URLs — confirming it's part of the go-live checklist was necessary.
+
+Checks not run (not applicable):
+- Backend typecheck/build: no source files were changed in this session, so there is nothing to re-verify — all billing code was already implemented and previously type-checked.
+- I could not verify your Render dashboard env vars or Stripe webhook endpoint from here — those are steps 1–3 on your side.
+
+One refinement to the checklist: in the Stripe webhook "Add endpoint" event selector, also ticking  invoice.paid  is harmless but optional (currently a stub for future in-app billing history).
+
+Remaining limitation: everything left is manual Stripe/Render configuration on your account — I can't click through those dashboards for you. Once you've set  STRIPE_SECRET_KEY  +  STRIPE_WEBHOOK_SECRET  on Render and redeployed, do the one live-card test from step 4 and check for 200s in the Stripe webhook delivery log.
+
+If you want, I can update  STRIPE_TEST_MODE_GUIDE.txt  Part E and  BILLING_PLAN.md  §3 to reflect the new auto-price flow so the docs match the code.

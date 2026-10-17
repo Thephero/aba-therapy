@@ -3,11 +3,21 @@
  (Plain-text runbook — follow the steps in order)
 =====================================================================
 
+═════════════════════════════════════════════════════════════════════
+ ⚡ UPDATE  Oct 15, 2026 — 22:38
+ Your Stripe account is UNPAUSED and has LIVE keys (sk_live_ / pk_live_).
+ GO-LIVE is documented in Part E, rewritten for the new flow:
+   • Only 2 env vars + 1 webhook are missing — NOTHING to build in
+     Stripe besides the webhook. The app creates its own Prices
+     automatically from the platform pricing config (see B2 note).
+   • What is missing to go live + 2 things to double-check: Part E.
+═════════════════════════════════════════════════════════════════════
+
 PART A — GET THE APP RUNNING LOCALLY
 PART B — STRIPE TEST MODE (TEST THE BILLING FLOW)
 PART C — TEST CARDS YOU CAN USE
 PART D — WHEN SOMETHING DOESN'T WORK
-PART E — GOING LIVE LATER (AFTER STRIPE APPROVES YOUR ACCOUNT)
+PART E — GOING LIVE *** REWRITTEN Oct 15, 2026 ***
 
 =====================================================================
 PART A — GET THE APP RUNNING LOCALLY
@@ -58,8 +68,15 @@ B1. GET YOUR TEST KEYS FROM STRIPE
 3. Developers -> API keys -> copy the "Secret key"
    It looks like:  sk_test_...
 
-B2. CREATE THE 6 TEST PRICES
-----------------------------
+B2. CREATE THE 6 TEST PRICES        *** LEGACY — SKIP THIS ***
+---------------------------------------------------------------------
+> ⚡ UPDATE Oct 15, 2026: The app now creates its Stripe Prices
+> automatically from the platform pricing config (base subscription +
+> add-ons). Checkout does the whole thing on its first run — you do
+> NOT need to create any products/prices in the Stripe dashboard and
+> the 6 STRIPE_PRICE_* env vars below are optional (see B4).
+> Kept here for reference only; go straight to B3.
+
 Stripe Dashboard -> Product catalog -> "Add product"
 Do this 3 times (each product gets 2 prices):
 
@@ -89,6 +106,7 @@ B3. CREATE THE TEST WEBHOOK (only needed for REMOTE testing on Render)
        customer.subscription.updated
        customer.subscription.deleted
        invoice.payment_failed
+   (invoice.paid is optional — the app treats it as a stub for now.)
 4. Click "Add endpoint" -> copy the "Signing secret"
    It looks like:  whsec_...
 
@@ -99,6 +117,10 @@ CHOICE 1 — LOCAL testing (recommended first):
     Add these lines (paste YOUR values):
 
         STRIPE_SECRET_KEY=sk_test_...
+
+    ⚡ Optional legacy vars (no longer required — the app auto-creates
+       prices; only needed if you want portal upgrades to auto-map
+       tier names):
         STRIPE_PRICE_BASIC_MONTHLY=price_...
         STRIPE_PRICE_BASIC_ANNUAL=price_...
         STRIPE_PRICE_PRO_MONTHLY=price_...
@@ -161,6 +183,8 @@ any 3-digit CVC, any name/ZIP):
 
 No real money moves in test mode.
 
+⚠ In LIVE mode test cards DO NOT work — you must use a real card.
+
 =====================================================================
 PART D — WHEN SOMETHING DOESN'T WORK
 =====================================================================
@@ -169,13 +193,17 @@ PART D — WHEN SOMETHING DOESN'T WORK
       -> STRIPE_SECRET_KEY is missing/empty in the .env (or on Render).
          Restart the backend after saving .env.
 
-- "Stripe price for BASIC/MONTHLY is not configured"
-      -> One of the 6 STRIPE_PRICE_... variables is missing or empty.
-         Check spelling of the variable names.
+- "Stripe price ... is not configured"
+      -> ⚡ Legacy message (Oct 15 update): prices now auto-create from
+         the platform pricing config, so this should not appear.
+         If you still see it, try setting STRIPE_PRICE_<plan>_<cycle>
+         (spelling matters) — or just make sure STRIPE_SECRET_KEY is
+         set correctly.
 
 - Checkout opens but payment fails
       -> Make sure you used a TEST card (Part C) and that Stripe
          dashboard is in TEST mode (keys start with sk_test_).
+         Mixed keys (sk_live_ + test cards) always fail.
 
 - Payment OK but Billing page still shows trial
       -> Webhook not connected. Locally: run stripe listen (B5).
@@ -190,22 +218,90 @@ PART D — WHEN SOMETHING DOESN'T WORK
          then RESTART the backend.
 
 =====================================================================
-PART E — GOING LIVE LATER (AFTER STRIPE APPROVES YOUR ACCOUNT)
+PART E — GOING LIVE        *** REWRITTEN Oct 15, 2026 — 22:38 ***
 =====================================================================
 
-1. Stripe approves the paused verification tasks -> account unpauses.
-2. Turn OFF Test mode. Create the same 6 prices again in LIVE mode.
-3. Copy the LIVE secret key (sk_live_...) and the 6 LIVE price IDs.
-4. Update the same variables on Render with the live values
-   (sk_live_... / price_...).
-5. Add a NEW webhook endpoint for LIVE mode (same URL + events) and
-   copy its whsec_... into Render.
-6. Redeploy. Done — no code changes needed.
+STATUS (Oct 15, 2026): Your Stripe account now has LIVE keys
+(sk_live_... / pk_live_...). Verification is done, so the old
+"waiting for Stripe approval" steps are gone. No code changes are
+needed — the app is fully built for live billing.
 
-NOTE: Your Stripe account is currently under the business name
-"Naturebylily". That name appears on customer invoices. If the ABA
-platform is a separate business, update Business details in Stripe
-or create a dedicated Stripe account for it later.
+WHAT IS STILL MISSING TO GO LIVE — exactly 3 things:
+  1. A LIVE webhook endpoint + its signing secret (whsec_...)  — not
+     created yet.                       -> step E1
+  2. STRIPE_SECRET_KEY (your sk_live_...) on Render   -> step E2
+  3. STRIPE_WEBHOOK_SECRET (the whsec_... from E1) on Render
+                                               -> step E2
+  That's all. Products/Prices are created automatically on the first
+  checkout. The publishable key (pk_live_...) is NOT used — checkout
+  and card entry are 100% hosted by Stripe.
+
+E1. CREATE THE LIVE WEBHOOK (do this first)
+-------------------------------------------
+1. Stripe Dashboard: make sure Test mode is OFF (top-right toggle) —
+   so the keys show sk_live_ (live mode).
+2. Developers -> Webhooks -> "Add endpoint"
+3. Endpoint URL:
+   https://aba-therapy-backend-7l47.onrender.com/api/v1/webhooks/stripe
+4. Select these events:
+       checkout.session.completed
+       customer.subscription.updated
+       customer.subscription.deleted
+       invoice.payment_failed
+   (invoice.paid is optional — handled as a stub for now.)
+5. Click "Add endpoint" -> copy the Signing secret
+   It looks like:  whsec_...
+
+E2. PUT THE LIVE KEYS ON RENDER
+-------------------------------
+1. https://dashboard.render.com -> your backend service -> Environment
+2. Add / update exactly 2 variables:
+
+       STRIPE_SECRET_KEY=sk_live_...      (Stripe -> API keys)
+       STRIPE_WEBHOOK_SECRET=whsec_...    (from E1)
+
+3. While there, confirm CORS_ORIGIN points at your LIVE Vercel URL —
+   the checkout success/cancel redirect URLs are built from it.
+4. Never paste the sk_live_ key into any file in the repo (.env,
+   docs, chat exports) — it stays in the Render dashboard only.
+5. Save changes -> "Manual Deploy" -> "Deploy latest commit".
+   Wait for the deploy to finish (green / "Live").
+
+E3. ONE REAL TEST (then refund it if you like)
+----------------------------------------------
+1. Open the live site. Log in with the Center ADMIN account.
+2. Sidebar -> "Billing" -> pick the base subscription -> "Subscribe".
+3. Pay with a REAL card (test cards do NOT work in live mode).
+4. The Billing page should show "Active". Verify in Stripe:
+   - Payments: one successful AED charge
+   - Developers -> Webhooks -> your endpoint -> Attempted deliveries:
+     recent events with 200 responses
+   - Product catalog: the Product + Price were auto-created
+     ("...subscription" product) on the first checkout.
+5. Optional: Payments -> the charge -> Refund. The subscription stays
+   active with a zero balance afterwards.
+
+E4. WHAT SURVIVES FROM THE OLD FLOW (6 STRIPE_PRICE_* VARS)
+-----------------------------------------------------------
+Those 6 variables are now LEGACY/optional. Checkout prices come from
+the platform pricing config (DB) and are created on demand. The only
+remaining use is a fallback: while syncing customer.subscription.up-
+dated events, the app tries to map a changed price back to a tier
+name — without the vars it simply keeps the plan currently stored.
+Skip them unless you later want portal upgrades to auto-rename tiers.
+
+TWO THINGS TO DOUBLE-CHECK BEFORE REAL MONEY
+--------------------------------------------
+1. BUSINESS NAME — the account is registered under "Naturebylily"
+   and that name prints on every customer invoice and email receipts.
+   Stripe -> Settings -> Business details -> update it if the ABA
+   platform should bill under a different name (or create a separate
+   Stripe account for it).
+2. PAYOUTS — a bank account must be connected for the money to reach
+   you. Stripe -> Payments -> Bank accounts (or Balances -> Set up
+   payouts) -> add your UAE bank account.
+   Fees: UAE domestic cards ≈ 2.9% + AED 1 per transaction (check the
+   current rate in the Dashboard before setting customer prices).
 
 =====================================================================
 Questions? See BILLING_PLAN.md (full plan) and DEPLOY.md (deployment).

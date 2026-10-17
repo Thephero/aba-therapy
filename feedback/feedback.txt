@@ -1,0 +1,389 @@
+Project feedback
+
+Overall assessment
+
+This is a solid ABA therapy management MVP with a good functional foundation. The project already includes:
+- Role-based login: admin, supervisor, therapist, parent
+- Student and staff management
+- Staff/student assignments
+- Programs and targets
+- Session scheduling and data collection
+- Trial, behavior, and mand recording
+- SOAP note generation and supervisor co-signing
+- Reports, charts, calendar, and parent portal
+- Local SQLite and production PostgreSQL support
+- Deployment documentation for Render, Vercel, and Neon
+- Basic access-control protections for assigned students
+
+The project is beyond a simple prototype, but it is not yet production-ready for real clinical or sensitive patient data.
+
+────────────────────────────────────────────────────────────────────────────────
+
+Strong points
+
+1. Good MVP scope
+
+The application focuses on the most important ABA workflows:
+- Define programs and targets
+- Assign staff to students
+- Run therapy sessions
+- Record clinical data
+- Generate SOAP notes
+- Review progress
+
+That is a sensible product direction.
+
+2. Role-based access was thoughtfully implemented
+
+The  access.ts  utility is a strong design decision. Centralizing access rules makes it easier to apply consistent permissions across:
+- Students
+- Programs
+- Sessions
+- Calendar
+- Dashboard statistics
+
+The previous access-control bug was also correctly fixed using  AND  conditions instead of accidentally overwriting the student ID.
+
+3. The parent portal is a valuable differentiator
+
+The parent experience is well considered:
+- Child profile
+- Session history
+- Programs and targets
+- Progress chart
+- Calendar
+- Read-only restrictions
+
+This is a good feature for increasing transparency between therapy centers and families.
+
+4. Deployment safeguards are unusually good for an MVP
+
+The environment guards are valuable. In particular:
+- Production API URL validation
+- Protection against accidentally using localhost
+- Protection against the Postgres/SQLite Prisma mismatch
+- Documented deployment process
+- Idempotent seed script
+
+These safeguards show good awareness of real deployment problems.
+
+5. Documentation is strong
+
+ PROJECT_PLAN.md ,  USER_MANUAL.md , and  DEPLOY.md  make the project easier to continue and hand over. The living session log is especially useful.
+
+────────────────────────────────────────────────────────────────────────────────
+
+Main concerns
+
+1. Authentication storage is not production-safe
+
+The frontend stores access and refresh tokens in  localStorage :
+
+// ts
+localStorage.setItem('accessToken', ...)
+localStorage.setItem('refreshToken', ...)
+
+If the application has an XSS vulnerability, an attacker can steal both tokens.
+
+Recommended improvement:
+- Store refresh tokens in secure,  HttpOnly ,  Secure ,  SameSite  cookies
+- Keep the access token short-lived
+- Rotate refresh tokens
+- Detect refresh-token reuse
+- Consider a backend session model instead of storing refresh tokens directly on  User 
+
+This is the highest-priority security improvement.
+
+────────────────────────────────────────────────────────────────────────────────
+
+2. Request validation is incomplete
+
+Many controllers directly use:
+
+// ts
+const body = req.body as Record<string, any>;
+
+and then write values directly to Prisma.
+
+The backend already uses Zod as a dependency, but validation is not consistently applied. This can lead to:
+- Invalid dates
+- Invalid roles
+- Invalid statuses
+- Missing required fields
+- Invalid IDs
+- Incorrect numeric values
+- Unexpected payloads
+
+For example, session types and behavior types are mostly accepted as arbitrary strings.
+
+Recommended improvement:
+
+Create shared Zod schemas for:
+- Login and registration
+- User creation/update
+- Student creation/update
+- Program and target data
+- Session creation/scheduling
+- Trial records
+- Behavior records
+- SOAP notes
+
+Validate in middleware before controllers execute.
+
+────────────────────────────────────────────────────────────────────────────────
+
+3. Several mutation endpoints lack explicit access checks
+
+Some read endpoints use scoping, but mutation endpoints appear to update records by ID directly.
+
+Examples that should be checked carefully:
+-  updateStudent 
+-  archiveStudent 
+-  assignSupervisor 
+-  assignTherapist 
+-  createProgram 
+-  updateProgram 
+-  addTarget 
+-  beginScheduledSession 
+-  endSession 
+-  addTrial 
+-  addBehaviorRecord 
+-  saveSOAPNote 
+-  coSignSOAPNote 
+
+A user may have the correct role but still be acting on a student or session outside their assigned caseload.
+
+Role authorization and resource authorization are different:
+- Role authorization: “Is this user a supervisor?”
+- Resource authorization: “Can this supervisor modify this specific student?”
+
+Both need to be enforced.
+
+────────────────────────────────────────────────────────────────────────────────
+
+4. Parent and cross-center ownership checks need strengthening
+
+For example, creating a program uses the supplied  studentId :
+
+// ts
+const { studentId, name, description } = body;
+
+The controller should first verify that the student:
+- Exists
+- Belongs to the current center
+- Is visible to the current user
+- Is active, where appropriate
+
+The same applies to:
+-  therapistId 
+-  supervisorId 
+-  programIds 
+-  behaviorPlanId 
+-  targetId 
+-  parentId 
+
+Never trust IDs supplied by the client without validating their ownership and relationship.
+
+────────────────────────────────────────────────────────────────────────────────
+
+5. Default secrets are unsafe
+
+The configuration has development fallbacks:
+
+// ts
+secret: process.env.JWT_SECRET || 'dev-jwt-secret-change-in-production'
+
+This is acceptable for local development but dangerous if deployed incorrectly.
+
+Recommended improvement:
+
+In production, fail startup if any of these are missing or too weak:
+-  JWT_SECRET 
+-  JWT_REFRESH_SECRET 
+-  ENCRYPTION_KEY 
+-  CORS_ORIGIN 
+-  DATABASE_URL 
+
+Do not allow production to boot using fallback secrets.
+
+────────────────────────────────────────────────────────────────────────────────
+
+6. No visible automated test suite for core business logic
+
+The environment guard has tests, and typechecking passes, but the main clinical workflows do not appear to have automated tests.
+
+Important tests should cover:
+- Therapist cannot view another therapist’s student
+- Parent cannot access another child
+- Therapist cannot modify another caseload
+- Supervisor can co-sign only permitted notes
+- Finalized SOAP notes cannot be edited
+- Scheduled sessions cannot be ended before being started
+- Invalid behavior plan data is rejected
+- Cross-center IDs are rejected
+- Archived students behave correctly
+- Refresh-token rotation works correctly
+
+For a system handling clinical records, access-control tests are essential.
+
+────────────────────────────────────────────────────────────────────────────────
+
+7. Audit logging is incomplete
+
+Audit logging is currently attached to only some routes. Reading sensitive records should also be audited, not only creating or updating them.
+
+A production audit system should record:
+- Who accessed a student
+- Who accessed a session
+- Who changed a program
+- Who changed a behavior plan
+- Who viewed or modified SOAP notes
+- Who linked a parent
+- Who exported or downloaded documents
+- Timestamp, IP, user agent, and resource ID
+
+Also, audit logging should be reliable. Currently, audit failure is logged but does not affect the request:
+
+// ts
+.catch((err) => {
+  console.error('Failed to create audit log:', err);
+});
+
+That may be acceptable for an MVP, but it is not sufficient for compliance evidence.
+
+────────────────────────────────────────────────────────────────────────────────
+
+8. PHI/document features are only schema placeholders
+
+The schema contains:
+-  Message 
+-  AttendanceRecord 
+-  DocumentUpload 
+
+but there are no complete routes or UI flows yet.
+
+The document model also contains a URL, but there is no demonstrated secure file-storage system. Avoid storing sensitive documents directly on the application server.
+
+A real implementation should include:
+- Private object storage
+- Signed download URLs
+- File type and size validation
+- Malware scanning
+- Access logging
+- Retention/deletion rules
+- Encryption
+- Permission checks
+
+────────────────────────────────────────────────────────────────────────────────
+
+9. The mobile application is not ready
+
+The original product vision emphasizes offline-first therapist workflows, but the mobile app is currently only a stub.
+
+This is a major gap if therapists are expected to use the product during live sessions. The web session flow may work for demonstrations, but clinical environments often need:
+- Tablet/mobile usability
+- Offline data collection
+- Automatic synchronization
+- Conflict handling
+- Local encrypted storage
+- Network recovery
+- Battery and background behavior
+
+This should be treated as a separate product phase rather than a small follow-up task.
+
+────────────────────────────────────────────────────────────────────────────────
+
+10. Some code quality issues are visible
+
+The frontend relies heavily on  any , for example:
+
+// ts
+sessions.filter((s: any) => ...)
+
+The backend also uses broad  Record<string, any>  and  any  Prisma filters.
+
+This makes future changes riskier, especially around clinical data. Introduce shared typed API response models for:
+- Student
+- Session
+- Program
+- Target
+- Behavior plan
+- SOAP note
+- Dashboard summary
+
+The  programController.ts  formatting also contains compressed statements such as:
+
+// ts
+if (skill) data.skill = skill;        if (promptHierarchy) ...
+
+This is valid but reduces readability and should be cleaned up.
+
+────────────────────────────────────────────────────────────────────────────────
+
+Product feedback
+
+Current product positioning
+
+The project is strongest as:
+> A lightweight ABA center operations and session-data platform for small therapy teams.
+
+
+That is realistic and compelling.
+
+It should not currently be marketed as:
+- Fully compliant healthcare software
+- A complete clinical record system
+- A secure document-management platform
+- An offline-first therapist platform
+- An AI clinical assistant
+
+Those capabilities are either incomplete or not implemented.
+
+Recommended next feature priority
+
+1. Security and authorization hardening
+2. Automated access-control and API tests
+3. Request validation with Zod
+4. Improve login/network error messages
+5. Implement messages, attendance, and documents
+6. Improve reporting accuracy and data definitions
+7. Build the mobile/offline workflow
+8. Compliance and operational controls
+9. Billing/subscription
+10. Telehealth and real-time features
+
+I would not prioritize Stripe or telehealth before security, testing, and clinical data reliability.
+
+────────────────────────────────────────────────────────────────────────────────
+
+Current verification result
+
+The existing checks pass:
+- Backend TypeScript typecheck: ✅
+- Frontend TypeScript typecheck: ✅
+- Frontend environment guard tests: ✅
+
+However, passing typechecks does not verify:
+- Correct permissions
+- Correct database ownership
+- Clinical workflow behavior
+- Token security
+- Production resilience
+
+────────────────────────────────────────────────────────────────────────────────
+
+Final opinion
+
+This is a well-organized and promising MVP with more functionality than most early-stage dashboard projects. The access-scoping work, parent portal, deployment guards, and documentation are particularly good.
+
+The project’s next stage should be a security/reliability phase, not simply adding more screens. Before real therapy centers use it with patient data, I recommend addressing:
+- HttpOnly cookie authentication
+- Strict production configuration
+- Zod validation
+- Resource-level authorization on every mutation
+- Automated API/security tests
+- Complete audit coverage
+- Secure document storage
+- Backup and recovery procedures
+
+Once those are addressed, the project can become a credible small-clinic SaaS product rather than only a feature-rich demonstration MVP.

@@ -71,4 +71,7 @@ declare module 'lucide-react' {
   export const ListChecks: Icon;
   export const Printer: Icon;
   export const HelpCircle: Icon;
+
+  // Platform dashboard overview
+  export const Building: Icon;
 }

@@ -86,6 +86,19 @@ export default function DocumentsPage() {
   async function handleDownload(id: string, fileName: string) {
     try {
       const { data } = await api.get(`/documents/${id}`);
+      if (data.url) {
+        // Stored in object storage — fetch via the signed URL.
+        const res = await fetch(data.url);
+        if (!res.ok) throw new Error('Download failed');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+        return;
+      }
       if (!data.contentBase64) {
         setError('This file was too large to store in-app and was shared outside the app.');
         return;

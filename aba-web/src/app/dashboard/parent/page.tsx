@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   Calendar, Clock, User, Activity, BookOpen, 
-  CheckCircle2, GraduationCap 
+  CheckCircle2, GraduationCap, XCircle 
 } from 'lucide-react';
 import { formatDate, formatTime } from '@/lib/utils';
 import { Term, plainStatus } from '@/components/parent/glossary';
@@ -39,6 +39,33 @@ export default function ParentDashboard() {
     },
     enabled: !!student,
   });
+
+  // Weekly attendance for the child (parents' notification feed summary)
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // Monday
+  weekStart.setHours(0, 0, 0, 0);
+  const { data: weekAttendance } = useQuery({
+    queryKey: ['parent-attendance-week', student?.id],
+    queryFn: async () => {
+      const { data } = await api.get('/attendance', {
+        params: {
+          ...(student?.id ? { studentId: student.id } : {}),
+          from: weekStart.toISOString(),
+          to: new Date().toISOString(),
+        },
+      });
+      return (data.records || []) as Array<{ status: string; date: string }>;
+    },
+    enabled: !!student,
+  });
+  const statusLabels: Record<string, string> = {
+    ATTENDING: 'Attended', SICK: 'Sick', ABSENT: 'Absent', LATE: 'Late', OTHER: 'Other',
+  };
+  const weekLines = (weekAttendance || [])
+    .slice()
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const attendedCount = weekLines.filter((r) => r.status === 'ATTENDING' || r.status === 'LATE').length;
+  const missedCount = weekLines.filter((r) => r.status === 'ABSENT' || r.status === 'SICK').length;
 
   // Split sessions into past and upcoming
   const now = new Date();
@@ -127,6 +154,50 @@ export default function ParentDashboard() {
               )}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Weekly attendance notification card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">This week's attendance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {weekLines.length === 0 ? (
+            <p className="text-sm text-gray-500">No attendance recorded this week yet.</p>
+          ) : (
+            <>
+              <div className="flex gap-4 text-sm text-gray-700">
+                <span className="flex items-center gap-1">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  {attendedCount} attended
+                </span>
+                <span className="flex items-center gap-1">
+                  <XCircle className="h-4 w-4 text-red-500" />
+                  {missedCount} missed
+                </span>
+              </div>
+              <ul className="mt-2 divide-y divide-gray-50">
+                {weekLines.map((r) => (
+                  <li key={new Date(r.date).toISOString()} className="flex items-center justify-between py-1 text-sm">
+                    <span className="text-gray-600">
+                      {new Date(r.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </span>
+                    <span className={
+                      (r.status === 'ATTENDING' || r.status === 'LATE')
+                        ? 'font-medium text-emerald-700'
+                        : 'font-medium text-red-600'
+                    }>
+                      {statusLabels[r.status] || r.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-gray-400">
+                Every attendance change is also sent to your messages.
+              </p>
+            </>
+          )}
         </CardContent>
       </Card>
 

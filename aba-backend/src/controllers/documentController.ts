@@ -1,6 +1,7 @@
 import { prisma } from '../utils/prisma';
 import { canAccessStudent, getStudentScope } from '../utils/access';
 import { Request, Response, NextFunction } from 'express';
+import { storageEnabled, putObject, getDownloadUrl, deleteObject } from '../utils/storage';
 
 // ─── Documents per student (reports, letters, invoices) ────────────────────
 // MVP storage: files are stored base64 in the DB (small docs) — swap for
@@ -114,15 +115,30 @@ export async function uploadDocument(req: Request, res: Response, next: NextFunc
       },
     });
 
-    // Store inline content as a second row in notes to avoid schema change;
-    // for MVP simplicity, encode into fileUrl pattern: data URI if small.
-    if (sizeBytes <= 1024 * 1024) {
+    if (storageEnabled()) {
+      // Object storage (R2): the file is never stored in the database.
+      const safeName = String(fileName).replace(/[^A-Za-z0-9._-]/g, '_');
+      const key = `documents/${doc.id}/${safeName}`;
+      try {
+        await putObject(key, Buffer.from(contentBase64, 'base64'), mimeType || 'application/octet-stream');
+        await prisma.documentUpload.update({
+          where: { id: doc.id },
+          data: { fileUrl: key },
+        });
+      } catch (storageErr) {
+        // Bucket upload failed — don't keep a dead metadata row.
+        await prisma.documentUpload.delete({ where: { id: doc.id } }).catch(() => {});
+        next(storageErr);
+        return;
+      }
+    } else if (sizeBytes <= 1024 * 1024) {
+      // Legacy fallback (no bucket configured): small files inline as a data URI.
       await prisma.documentUpload.update({
         where: { id: doc.id },
         data: { fileUrl: `data:${mimeType || 'application/octet-stream'};base64,${contentBase64}` },
       });
     } else {
-      // Larger files: keep metadata only; the clinic shares via email until S3.
+      // No storage configured and file too big to inline: keep metadata only.
       await prisma.documentUpload.update({
         where: { id: doc.id },
         data: { fileUrl: '', notes: `${notes ? notes + ' — ' : ''}File content shared outside the app (too large for in-app storage).` },
@@ -172,6 +188,15 @@ export async function downloadDocument(req: Request, res: Response, next: NextFu
       return;
     }
 
+    // Object-stored docs: fileUrl holds the object key — hand back a signed URL.
+    if (doc.fileUrl && storageEnabled()) {
+      const url = await getDownloadUrl(doc.fileUrl, doc.fileName).catch(() => null);
+      if (url) {
+        res.json({ fileName: doc.fileName, mimeType: doc.mimeType, url });
+        return;
+      }
+    }
+
     res.json({ fileName: doc.fileName, mimeType: null, contentBase64: null });
   } catch (error) {
     next(error);
@@ -192,6 +217,9 @@ export async function deleteDocument(req: Request, res: Response, next: NextFunc
     if (!doc || !(await canAccessStudent(user, doc.student.id))) {
       res.status(403).json({ error: 'You do not have access to this document' });
       return;
+    }
+    if (doc.fileUrl && !doc.fileUrl.startsWith('data:')) {
+      await deleteObject(doc.fileUrl).catch(() => {});
     }
     await prisma.documentUpload.delete({ where: { id: doc.id } });
     res.json({ message: 'Document deleted' });

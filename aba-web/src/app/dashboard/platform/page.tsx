@@ -9,7 +9,20 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { AlertTriangle, Check } from 'lucide-react';
+import { AlertTriangle, Check, Building, Users, GraduationCap, CreditCard, Wallet, TrendingUp } from 'lucide-react';
+
+interface PlatformStats {
+  centersTotal: number;
+  centersActive: number;
+  studentsTotal: number;
+  usersTotal: number;
+  usersByRole: { centerAdmins: number; supervisors: number; therapists: number; parents: number };
+  subscriptions: { active: number; trialing: number; pastDue: number; canceled: number };
+  paidCenters: number;
+  extraStudentSeats: number;
+  estimatedMrr: number;
+  currency: string;
+}
 
 interface AddOnItem {
   key: string;
@@ -51,6 +64,16 @@ export default function PlatformPricingPage() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const isOwner = !!user && user.role?.toLowerCase() === 'platform_admin';
+
+  const { data: statsData } = useQuery<{ stats: PlatformStats }>({
+    queryKey: ['platform-stats'],
+    queryFn: async () => {
+      const res = await api.get('/platform/stats');
+      return res.data;
+    },
+    enabled: isOwner,
+  });
+  const stats = statsData?.stats;
 
   const { data, isLoading } = useQuery<{ pricing: PricingConfig; brand?: string }>({
     queryKey: ['platform-pricing'],
@@ -124,6 +147,37 @@ export default function PlatformPricingPage() {
 
   return (
     <div className="space-y-6">
+      {/* Platform overview stats */}
+      {stats && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Platform overview</CardTitle>
+            <CardDescription>Live counts across every registered center</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+              {[
+                { label: 'Centers registered', value: stats.centersTotal, icon: Building, sub: `${stats.centersActive} active` },
+                { label: 'Students registered', value: stats.studentsTotal, icon: GraduationCap, sub: `across ${stats.centersTotal} centers` },
+                { label: 'Paying centers', value: stats.paidCenters, icon: CreditCard, sub: `${stats.subscriptions.trialing} trialing · ${stats.subscriptions.pastDue} past due` },
+                { label: 'Paid add-on seats', value: stats.extraStudentSeats, icon: Wallet, sub: 'extra student seats bought' },
+                { label: 'Est. monthly revenue', value: `${stats.estimatedMrr.toLocaleString()} ${stats.currency}`, icon: TrendingUp, sub: 'recurring, monthly cycle' },
+                { label: 'Platform users', value: stats.usersTotal, icon: Users, sub: `${stats.usersByRole.supervisors} supervisors · ${stats.usersByRole.therapists} therapists \n ${stats.usersByRole.parents} parents` },
+              ].map((s) => (
+                <div key={s.label} className="rounded-lg border border-gray-100 bg-gray-50/50 p-3">
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-400">
+                    <s.icon className="h-4 w-4 text-indigo-500" />
+                    <span className="truncate">{s.label}</span>
+                  </div>
+                  <p className="mt-1.5 text-xl font-bold text-gray-900">{s.value}</p>
+                  <p className="mt-0.5 whitespace-pre-line text-[11px] leading-tight text-gray-500">{s.sub}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>

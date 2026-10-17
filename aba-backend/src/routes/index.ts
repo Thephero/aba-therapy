@@ -149,6 +149,7 @@ router.get('/supervisor/overview', authenticate, supervisorController.getSupervi
 // GET is available to any authenticated staff (Billing page renders from it);
 // PUT is restricted to the platform owner (PLATFORM_ADMIN).
 router.get('/platform/pricing', authenticate, platformController.getPricing);
+router.get('/platform/stats', authenticate, authorize('PLATFORM_ADMIN'), platformController.getStats);
 router.put('/platform/pricing', authenticate, authorize('PLATFORM_ADMIN'), platformController.updatePricing);
 
 // ─── Rule Engine & SOAP Notes (sessionRules) ────────────────────────────────

@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MessagesSquare, Send, ArrowLeft, GraduationCap } from 'lucide-react';
+import { MessagesSquare, Send, ArrowLeft, GraduationCap, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ─── Messaging UI (thread per student) ───────────────────────────────────
@@ -25,8 +26,12 @@ function roleLabel(role: string): string {
 
 export function MessagingPanel({ compact }: { compact?: boolean }) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'center_admin';
   const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const [sendToAll, setSendToAll] = useState(false);
+  const [broadcastNote, setBroadcastNote] = useState('');
 
   const { data: threads, isLoading: threadsLoading } = useQuery({
     queryKey: ['message-threads'],
@@ -49,7 +54,12 @@ export function MessagingPanel({ compact }: { compact?: boolean }) {
 
   const sendMutation = useMutation({
     mutationFn: async (studentId: string) => {
-      await api.post(`/messages/${studentId}`, { content: draft });
+      const { data } = await api.post(`/messages/${studentId}`, {
+        content: draft,
+        broadcast: isAdmin && sendToAll ? true : undefined,
+      });
+      if (data?.broadcastTo != null) setBroadcastNote(`Sent to ${data.broadcastTo} chats`);
+      else setBroadcastNote('');
       setDraft('');
     },
     onSuccess: () => {
@@ -129,22 +139,38 @@ export function MessagingPanel({ compact }: { compact?: boolean }) {
           ))}
         </div>
         <form
-          className="flex gap-2 border-t border-gray-200 p-3"
+          className="border-t border-gray-200 p-3"
           onSubmit={(e) => {
             e.preventDefault();
             if (!draft.trim()) return;
             sendMutation.mutate(activeStudentId);
           }}
         >
-          <Input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Type a message…"
-            className="flex-1"
-          />
-          <Button type="submit" size="icon" disabled={!draft.trim() || sendMutation.isPending}>
-            <Send className="h-4 w-4" />
-          </Button>
+          {isAdmin && (
+            <label className="mb-2 flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sendToAll}
+                onChange={(e) => setSendToAll(e.target.checked)}
+              />
+              <Users className="h-3.5 w-3.5" />
+              Send to everyone (every student's chat in the center)
+            </label>
+          )}
+          <div className="flex gap-2">
+            <Input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Type a message…"
+              className="flex-1"
+            />
+            <Button type="submit" size="icon" disabled={!draft.trim() || sendMutation.isPending}>
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+          {broadcastNote && (
+            <p className="mt-1.5 text-xs text-emerald-600">✔ {broadcastNote}</p>
+          )}
         </form>
       </Card>
     );

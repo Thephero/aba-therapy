@@ -210,7 +210,7 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
   try {
     const user = req.user!;
     const studentId = req.params.studentId as string;
-    const { content } = req.body as Record<string, any>;
+    const { content, broadcast } = req.body as Record<string, any>;
 
     if (!content || typeof content !== 'string' || !content.trim()) {
       res.status(400).json({ error: 'Message content is required' });
@@ -219,6 +219,35 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
 
     if (!user || !(await canAccessStudent(user, studentId))) {
       res.status(403).json({ error: 'You do not have access to this conversation' });
+      return;
+    }
+
+    // CENTER_ADMIN shared announcement: post the same message into every
+    // student's chat in the center ("send to all"). The selected studentId
+    // is only used for the access check up here.
+    if (broadcast === true) {
+      if (user.role !== 'CENTER_ADMIN') {
+        res.status(403).json({ error: 'Only center admins can broadcast' });
+        return;
+      }
+      const students = await prisma.student.findMany({
+        where: { centerId: user.centerId, isActive: true },
+        select: { id: true, parentId: true },
+      });
+      if (students.length > 0) {
+        await prisma.message.createMany({
+          data: students.map((s) => ({
+            studentId: s.id,
+            senderId: user.userId,
+            // Address the copy to that child's parent so it shows as an
+            // unread badge for them (staff still see it in the thread);
+            // fall back to the admin's own id when a student has no parent.
+            receiverId: s.parentId || user.userId,
+            content: content.trim().slice(0, 4000),
+          })),
+        });
+      }
+      res.status(201).json({ broadcastTo: students.length });
       return;
     }
 

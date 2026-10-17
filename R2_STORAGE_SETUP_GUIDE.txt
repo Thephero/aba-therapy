@@ -1,0 +1,74 @@
+================================================================================
+DOCUMENT STORAGE — CLOUDFLARE R2 SETUP (fixes "file too large to store in-app")
+================================================================================
+
+WHAT WAS WRONG
+--------------
+Uploads up to 5MB were accepted, but the backend only actually saved files up to
+1MB (inline base64 in the Postgres "fileUrl" column). Anything between 1MB and
+5MB was accepted at upload time, then silently discarded — when you opened the
+document later you saw "File was too large to store in-app and was shared
+outside the app."
+
+WHAT CHANGED
+------------
+Documents are now uploaded to Cloudflare R2 (S3-compatible object storage,
+10GB free, no data egress fees):
+  - aba-backend/src/utils/storage.ts        → S3-compatible client helpers
+  - aba-backend/src/controllers/documentController.ts → upload/download/delete
+  - aba-web (staff + parent Documents pages) → download via signed URL
+
+If R2 is NOT configured, the old 1MB-inline behaviour is kept as a fallback,
+so nothing breaks in local dev.
+
+STEPS TO GO LIVE (do this in the Cloudflare dashboard, then Render)
+-------------------------------------------------------------------
+1. Create a Cloudflare account (free) → dashboard.cloudflare.com
+2. Go to R2 Object Storage → "Create bucket".
+      Bucket name: aba-documents   (or any name you like)
+      Location: Automatic (or pick the region closest to your users)
+      Leave "Access keys" default.
+   Tips:
+   - First-time users are asked to enable R2 — accept (no credit card needed).
+   - Free tier: 10 GB storage / month, 1 million writes, 10 million reads,
+     zero egress fees.
+3. In R2 → "Manage R2 API Tokens" → "Create API Token":
+      Permission: Object Read & Write
+      Scope: limit to your bucket (aba-documents) — safest option
+      TTL: forever (or as you prefer)
+   Note / copy the THREE values shown once:
+      - Access Key ID
+      - Secret Access Key
+      (the Account ID is shown on the R2 overview page)
+
+4. Add these FOUR environment variables to your backend service on Render
+   (Render Dashboard → aba-backend → Environment):
+
+      R2_ACCOUNT_ID        = <your Cloudflare Account ID>
+      R2_ACCESS_KEY_ID     = <Access Key ID from step 3>
+      R2_SECRET_ACCESS_KEY = <Secret Access Key from step 3>
+      R2_BUCKET            = aba-documents
+
+   Also add the same 4 vars locally in aba-backend/.env for testing.
+
+5. Redeploy the backend (Render usually auto-deploys on push). The frontend
+   (Vercel) needs no new env vars — it just follows the signed URL the backend
+   returns.
+
+6. Test:
+   - Upload a PDF between 1MB and 5MB → success.
+   - Open the Documents page → click Open → the real file downloads
+     (signed URLs last 10 minutes, so re-opening re-requests a fresh one).
+   - Delete a document → the file is removed from R2 too.
+
+BEHAVIOUR NOTES
+---------------
+- Files are streamed from R2 as *attachment* downloads; the browser saves them.
+- Old docs uploaded before this change:
+    * ≤1MB ones still open fine (they were stored inline in the DB).
+    * 1–5MB ones were already discarded by the old code — re-upload them.
+- Upload size cap remains 5MB. If you want bigger files later, raise
+  MAX_FILE_BYTES in documentController.ts AND the express.json limit in
+  src/index.ts (currently '10mb', base64 payloads are ~1.33x file size).
+- Bucket files use keys like: documents/<docId>/<filename> — safe chars only.
+================================================================================

@@ -1,0 +1,256 @@
+=====================================================================
+ PERSONA FEEDBACK — GAP ANALYSIS REPORT (CODE-VERIFIED)
+ 4 of 4 personas · ABA Therapy Platform (A-Z-Z-M)
+ Compiled: Oct 15, 2026 — basis: actual source code, not docs
+=====================================================================
+
+PURPOSE
+---------------------------------------------------------------------
+The 4 persona feedback files were compared against the real codebase
+(backend controllers, pages, and the Oct 10 "15 features" pass).
+Everything below marked ✅ was VERIFIED in the code, not assumed.
+
+HEADLINE
+---------------------------------------------------------------------
+The Oct 10, 2026 feedback pass already shipped 15 items.  Most
+complaints are fixed.  The unmet expectation now clusters around
+FOUR things:
+   1. Real email delivery (no email provider is wired in — P0,
+      it unlocks password reset / notifications / trial warnings)
+   2. Parent progress report PDF export
+   3. Notifications (cancellations, reminders, pending-note digest)
+   4. Phone-friendly session flow / real mobile app
+
+How to read each persona section:
+   ✅ DONE — verified present in the code
+   🟡 PARTIAL — the core exists, a piece is missing
+   ❌ OPEN  — nothing in the codebase addresses it yet
+
+=====================================================================
+ PERSONA 1 — CENTER ADMIN ("Amira")
+ Oct 10 pass got 4 of her top 5
+=====================================================================
+
+  1. Limit dead-end when adding a student ........... ✅ DONE
+     Inline upgrade banner on the students page; the typed student
+     form is preserved and the admin retries after upgrading
+     ( aba-web/src/app/dashboard/students/page.tsx ).
+
+  2. Re-assign today's sessions (staff absence) ..... ❌ OPEN
+     No bulk reassign action exists anywhere.
+
+  3. Parent-friendly progress report (PDF) .......... ❌ OPEN
+     The reports page shows totals/trends but has NO export at all.
+
+  4. Attendance module .............................. ✅ DONE
+     /dashboard/attendance exists, with plain-language status labels.
+
+  5. Password resets all on the admin ............... 🟡 PARTIAL
+     Self-serve forgot/reset pages exist (working flow), BUT the
+     reset email only prints to the server log — no email provider
+     is connected (backlog #1). Staff members will never receive
+     the link until that is wired up.
+
+  6. Alerts when staff fall behind (digest) ......... ❌ OPEN
+     Zero notification/email infrastructure in the code.
+
+  7. Trial & billing anxiety ........................ 🟡 PARTIAL
+     Billing banner shows days left and turns red at ≤3 days, but
+     there is no "what happens on expiry day" explanation and no
+     email warning.
+
+  8. Account-level settings page .................... ❌ OPEN
+     Only the PLATFORM OWNER has a settings page (platform
+     pricing). The center admin has no Settings page.
+
+  9. Onboarding staff (invite email + forced change)  ❌ OPEN
+     Temp passwords are still handed over verbally; no forced
+     password change on first login.
+
+ 10. Mobile isn't real .............................. ❌ OPEN
+     aba-mobile is a login-screen stub.
+
+ Top 5 she'd pay for:
+     1. Attendance + invoicing ..... attendance ✅ / invoicing ❌
+     2. PDF progress report ........ ❌ OPEN
+     3. Password reset ............. 🟡 half (email missing)
+     4. Upgrade-without-losing-form ✅ DONE
+     5. Alerts / pending-notes ..... ❌ OPEN
+
+=====================================================================
+ PERSONA 2 — SUPERVISOR / BCBA ("Omar")
+ Most-served persona — Oct 10 pass got 5 of 9, including his #1
+=====================================================================
+
+  1. Risk dashboard (who is stalling this week?) .... ✅ DONE
+     /dashboard/lookout — risk tab + co-sign tab, at-risk totals.
+
+  2. Co-signing .................................... 🟡 PARTIAL
+     A co-sign QUEUE exists (Lookout tab counts "notes awaiting
+     my signature"), but signing is still one-by-one — no bulk
+     signing.
+
+  3. In-app messaging staff ↔ staff ................ ✅ DONE
+     /dashboard/messages.
+
+  4. Suggested goals → one-click program target .... ✅ DONE
+     "goal -> target" shipped in the Oct 10 pass.
+
+  5. Recurring sessions + availability calendar 🟡 PARTIAL
+     Recurring session series are implemented (backend
+     sessionController, "recurring series"); staff-availability-
+     aware calendar is NOT.
+
+  6. Prompt-level learning-curve chart ............. ❌ OPEN
+
+  7. Clinical-grade progress report PDF ............ ❌ OPEN
+     (same gap as admin #3 — one report serves both)
+
+  8. Sticky quick-trial bar ........................ ✅ DONE
+     2-tap quick-trial bar remembers the last target chip
+     (Tier 3.11, session detail page).
+
+  9. Data-quality / implausible-data flags ......... ❌ OPEN
+
+ Top 5 he'd pay for:
+     1. Risk dashboard ............. ✅ DONE
+     2. Co-sign queue .............. ✅ queue / ❌ bulk sign
+     3. In-app messaging ........... ✅ DONE
+     4. Goals -> targets one-click . ✅ DONE
+     5. Recurring sessions ......... ✅ / availability ❌
+
+=====================================================================
+ PERSONA 3 — THERAPIST / RBT ("Sara")
+ 5 of her top 5 addressed — but her #1 (phone) is still open
+=====================================================================
+
+  1. Quick-record / quick-trial mode ............... ✅ DONE
+  2. PHONE-FRIENDLY (her #1 ask) ................... ❌ OPEN —
+     the single biggest remaining gap in the whole report.
+  3. Today's targets at a glance ................... 🟡 PARTIAL
+     (My Day covers the day view; the student-page "therapist
+     view" layout is not dedicated yet)
+  4. Honest login errors (server down ≠ bad password) ✅ DONE
+  5. Offline / save-retry state .................... ❌ OPEN
+  6. "My Day" list (next session, room, pending) ... ✅ DONE
+  7. Mand quick-tally buttons (+1/+1) .............. ✅ DONE
+     (Mand tally in the session page)
+  8. Flag something to the supervisor .............. ✅ DONE
+     (via the Messages feature)
+  9. Self-serve password reset ..................... 🟡 PARTIAL
+     (flow exists; the email is never delivered)
+ 10. End-of-day wrap-up checklist .................. 🟡 PARTIAL
+     (auto-SOAP + pending notes card exist; the dots are not
+     fully connected into one checklist)
+
+ Top 5 she'd pay for:
+     1. Mobile-friendly session recording .. ❌ OPEN
+     2. Quick-trial 2-tap mode ............. ✅ DONE
+     3. My Day view ........................ ✅ DONE
+     4. Save/sync status + offline ......... ❌ OPEN
+     5. Clear login errors ................. ✅ DONE
+
+=====================================================================
+ PERSONA 4 — PARENT / GUARDIAN ("Layla")
+ 4 of her top 5 addressed
+=====================================================================
+
+  1. Clinical jargon ............................... ✅ DONE
+     Glossary tooltips ("Term", plainStatus) wired across all
+     parent pages (glossary.tsx).
+  2. Skill-progress per program .................... ✅ DONE
+     /dashboard/parent/progress.
+  3. Plain-language session summary ................ 🟡 PARTIAL
+     The progress view speaks plain language; per-session parent
+     summaries are not generated.
+  4. Messaging with the center ..................... ✅ DONE
+     /dashboard/parent/messages
+  5. Documents area (reports + invoices) ........... ✅ DONE
+     /dashboard/parent/documents.
+  6. Home activities ............................... ❌ OPEN
+  7. NOTIFICATIONS (cancellations, reminders) ...... ❌ OPEN —
+     no notification system exists at all anywhere.
+  8. Invoices visible to the parent ................ ❌ OPEN
+  9. Welcome flow + forced first password change ... ❌ OPEN
+     (a welcome banner exists; no forced change)
+ 10. Timezone/date context on times ................ ❌ OPEN
+     (will be solved together with a center Settings page)
+
+ Top 5 she'd pay for:
+     1. Plain session summaries .... 🟡 partial
+     2. Skill-progress view ........ ✅ DONE
+     3. Messaging .................. ✅ DONE
+     4. Notifications .............. ❌ OPEN
+     5. Documents area ............. ✅ DONE
+
+=====================================================================
+ THE PRIORITIZED FIX LIST ("what to build next")
+=====================================================================
+
+P0 — ONE FIX UNLOCKS FOUR PERSONAS' ASKS: REAL EMAIL DELIVERY
+  Wire an email provider (Resend / SendGrid / Postmark) into the
+  existing sendPasswordResetEmail, which currently only prints to
+  the server log. This single connection closes:
+   - Admin #5/#9   (password babysitting, staff invites)
+   - Therapist #9  (reset email she never gets today)
+   - Parent #9     (part of the welcome experience)
+  AND becomes the backbone for the notification features:
+   - Admin #6/feed (pending-notes digest, trial-expiry email)
+   - Parent #7     (session reminders, cancellation alerts)
+  NOTE: this is a third-party service choice — it needs to be
+  researched and picked (Gravity search) before wiring.
+
+P1 — HIGHEST-VALUE FEATURES STILL MISSING
+  1. Parent progress report PDF export (admin top-5 #2 AND
+     supervisor top-5 #7 — one page serves both personas)
+  2. Notifications: cancellations + reminders (parent) and a
+     pending-notes digest for admins; rides on P0
+  3. Parent invoice visibility in the portal
+
+P2 — QUALITY OF LIFE
+  4. Center Settings page (name, logo, hours, timezone —
+     timezone labels fix parent #10 at the same time)
+  5. Staff invite email + forced first-login password change
+  6. "Re-assign today's sessions" quick action (staff absence)
+  7. Bulk co-sign button in the Lookout queue
+  8. Save/retry (sync) state for flaky Wi-Fi during sessions
+
+P3 — BIG LIFTS (plan consciously)
+  9.  Phone-responsive session flow / real mobile app
+      (therapist's #1 ask — decide native vs. responsive web)
+  10. Availability-aware calendar
+  11. Learning-curve charts per target (prompt fading)
+  12. Data-quality / implausible-data flags
+  13. Home-activities feed for parents
+  14. Per-session auto-generated parent summary
+
+=====================================================================
+ BOTTOM LINE
+=====================================================================
+ - The supervisor persona is already best-in-class; his remaining
+   gaps are polish (bulk co-sign, charts, PDF).
+ - The app meets most of the parent experience already (portal,
+   glossary, progress, messages, documents) — what's missing is
+   mostly COMMUNICATION (email + notifications).
+ - The therapist is the least served going forward: her #1 ask
+   (phone-friendly session flow) is the largest open item.
+ - RECOMMENDED ORDER: P0 email provider -> PDF report ->
+   notifications -> parent invoices -> Settings -> the rest.
+
+=====================================================================
+ SOURCES (files verified to build this report)
+=====================================================================
+ - feedback/persona-1-center-admin-feedback.txt   (Amira, 41)
+ - feedback/persona-2-supervisor-feedback.txt     (Omar, 34)
+ - feedback/persona-3-therapist-feedback.txt      (Sara, 26)
+ - feedback/persona-4-parent-feedback.txt         (Layla, 37)
+ - Code: aba-web/src/app/dashboard/lookout, attendance, messages,
+   my-day, billing, parent/{progress,documents,messages},
+   sessions/[id] (quick-trial, mand tally, co-sign),
+   students/page.tsx (upgrade banner)
+ - Code: aba-backend/src/controllers/supervisorController.ts
+   (risk overview + co-sign queue), sessionController.ts
+   (recurring series), authController.ts (reset tokens)
+ - Logs: "what is next.txt" (backlog #1 = email provider),
+   "what_was_updated.txt", "PROJECT_PLAN.md" session log
+=====================================================================

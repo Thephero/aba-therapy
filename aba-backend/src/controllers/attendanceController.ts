@@ -102,6 +102,29 @@ export async function markAttendance(req: Request, res: Response, next: NextFunc
       });
     }
 
+    // Notify the parent in the student's chat thread (shows as an unread
+    // message for them — the messages page is the parent notification feed).
+    // (markAttendance is staff-only already, so this always applies here.)
+    {
+      const student = await prisma.student.findUnique({
+        where: { id: studentId },
+        select: { name: true, parentId: true },
+      });
+      if (student?.parentId) {
+        const fmt = recordDate.toLocaleDateString('en-GB', {
+          weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+        });
+        await prisma.message.create({
+          data: {
+            studentId,
+            senderId: user.userId,
+            receiverId: student.parentId,
+            content: `📋 Attendance update for ${student.name} — marked ${status.toLowerCase()} on ${fmt}${notes ? `. Note: ${notes}` : ''}`,
+          },
+        });
+      }
+    }
+
     res.status(201).json({ record });
   } catch (error) {
     next(error);

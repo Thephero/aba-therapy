@@ -1,6 +1,7 @@
 # 💳 Subscription Billing Plan — Stripe (UAE)
 
-> **Status:** ✅ IMPLEMENTED (Oct 3) — code is built and typechecks clean; awaiting Stripe Dashboard setup (6 price IDs + webhook secret) to go live. See §3 for the go-live checklist.
+> **Status:** ✅ IMPLEMENTED (Oct 3) — code is built and typechecks clean.
+> **⚡ Go-live update (Oct 15, 2026 — 22:38):** Stripe account has LIVE keys (sk_live_/pk_live_). The "6 price IDs" setup is obsolete — the app auto-creates its Prices from the platform pricing config on first checkout. What's still missing to go live: (1) create the **live webhook** `https://aba-therapy-backend-7l47.onrender.com/api/v1/webhooks/stripe` and copy its `whsec_...`, (2–3) set `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` on Render and redeploy. Nothing else. Double-check before charging real customers: business name ("Naturebylily" prints on invoices) and a connected UAE bank account for payouts. Full runbook: `STRIPE_TEST_MODE_GUIDE.txt` Part E.
 > **Decision record:** Square was considered first but is **not available in the UAE**. Stripe was chosen instead (full UAE support since 2021, AED support, payouts to UAE banks; account requires a valid UAE trade license).
 > **Billing model (user decision):** per-student tier **+** monthly/annual option (annual = 2 months free). **Trial: 14 days (user-confirmed).**
 
@@ -79,6 +80,8 @@ New `src/services/stripe.ts` + `src/controllers/billing.ts` + `src/routes/billin
 
 **Env vars (Render):** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_STARTER_MONTHLY`, `STRIPE_PRICE_STARTER_ANNUAL`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_ANNUAL` (+ Enterprise when defined).
 
+> ⚡ **Oct 15, 2026 update:** the `STRIPE_PRICE_*` vars are now legacy/optional — base-subscription and add-on Prices are created on demand from the platform pricing config (see `services/stripe.ts` → `getOrCreateBasePrice` / `ensurePriceForItem`), so going live only needs the secret key + webhook secret and auto-created prices. The price vars' last remaining use is the `resolvePlanFromPriceId` fallback on `customer.subscription.updated` (keeps the stored plan when unset).
+
 ### 2.3 Frontend (`aba-web`)
 
 1. **Billing page** `/dashboard/billing` (Admin-only; hidden in sidebar for other roles):
@@ -100,7 +103,7 @@ Stub — no billing work needed now.
 
 ## 3. Implementation Steps (when coding starts)
 
-1. **Stripe account setup** (user, needs UAE trade license): create account → get `sk_test` keys → create Products/Prices in Dashboard (test mode) → set webhook endpoint later after deploy.
+1. **Stripe account setup** (user, needs UAE trade license): ~~create Products/Prices in Dashboard manually~~ ⚡ **Oct 15, 2026 update:** account has live keys and Prices auto-create — only the **live webhook endpoint + `whsec_`** and the 2 Render env vars remain (see `STRIPE_TEST_MODE_GUIDE.txt` Part E, rewritten that day).
 2. **Backend:** Prisma schema fields → `stripe.ts` service → billing routes → webhook route (raw-body signature verification) → student-limit enforcement → `.env.production.example` update.
 3. **Frontend:** Billing page + tier table + checkout redirect + portal redirect + trial banner + limit UX.
 4. **Local test:** Stripe CLI `stripe listen --forward-to localhost:3001/api/v1/webhooks/stripe`; test cards `4242 4242 4242 4242` (success), `4000 0000 0000 0341` (declined).
